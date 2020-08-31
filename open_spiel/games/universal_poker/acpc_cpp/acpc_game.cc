@@ -147,6 +147,11 @@ uint8_t ACPCGame::GetNbBoardCardsRequired(uint8_t round) const {
   return nbCards;
 }
 
+uint32_t ACPCGame::GetRaiseSize(uint8_t round) const {
+  SPIEL_CHECK_LT(round, acpc_game_.numRounds);
+  return acpc_game_.raiseSize[round];
+}
+
 uint8_t ACPCGame::GetTotalNbBoardCards() const {
   uint8_t nbCards = 0;
   for (int r = 0; r < acpc_game_.numRounds; ++r) {
@@ -243,6 +248,11 @@ uint32_t ACPCState::TotalSpent() const {
 uint32_t ACPCState::CurrentSpent(const uint8_t player) const {
   SPIEL_CHECK_LE(player, game_->GetNbPlayers());
   return acpcState_.spent[player];
+}
+
+bool ACPCState::Folded(const uint8_t player) const {
+  SPIEL_CHECK_LE(player, game_->GetNbPlayers());
+  return acpcState_.playerFolded[player];
 }
 
 std::string ACPCState::ActionToString(

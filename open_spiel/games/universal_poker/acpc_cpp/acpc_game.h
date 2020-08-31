@@ -54,6 +54,7 @@ class ACPCGame {
   uint32_t StackSize(uint8_t player) const;
   uint32_t BlindSize(uint8_t player) const;
   uint8_t GetTotalNbBoardCards() const;
+  uint32_t GetRaiseSize(uint8_t round) const;
 
   // Accessors.
   ::project_acpc_server::Game* MutableGame() const { return &acpc_game_; }
@@ -91,6 +92,7 @@ class ACPCState {
   uint32_t Ante(const uint8_t player) const;
   uint32_t TotalSpent() const;
   uint32_t CurrentSpent(const uint8_t player) const;
+  bool Folded(const uint8_t player) const;
   std::string ToString() const;
   std::string BettingSequence(uint8_t round) const;
   int RaiseIsValid(int32_t* minSize, int32_t* maxSize) const;

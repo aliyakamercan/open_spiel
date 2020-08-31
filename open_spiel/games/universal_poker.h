@@ -42,62 +42,62 @@ namespace universal_poker {
 class UniversalPokerGame;
 
 constexpr uint8_t kMaxUniversalPokerPlayers = 10;
+constexpr uint8_t kMaxActionsPerPlayerPerRound = 4;
+constexpr uint8_t kMaxSuits = 4;
+constexpr int8_t kCardNotDealt = -1;
 
-// This is the mapping from int to action. E.g. the legal action "0" is fold,
-// the legal action "1" is check/call, etc.
-enum ActionType { kFold = 0, kCall = 1, kBet = 2, kAllIn = 3, kDeal = 4 };
-enum BettingAbstraction { kFCPA = 0, kFC = 1, kFULLGAME = 2 };
+enum ActionType {
+  kFold = 0, kCall = 1, kBet = 2 /*, kAllIn = 3*/};
 
-enum StateActionType {
-  ACTION_DEAL = 1,
-  ACTION_FOLD = 2,
-  ACTION_CHECK_CALL = 4,
-  ACTION_BET = 8,
-  ACTION_ALL_IN = 16
+enum BettingAbstraction {
+  kLimit = 0,
+  kNoLimit = 1,
+  kDiscreteNoLimit = 2,
 };
 
-constexpr StateActionType ALL_ACTIONS[5] = {
-    ACTION_DEAL, ACTION_FOLD, ACTION_CHECK_CALL, ACTION_BET, ACTION_ALL_IN};
-
 class UniversalPokerState : public State {
- public:
+public:
   explicit UniversalPokerState(std::shared_ptr<const Game> game);
 
   bool IsTerminal() const override;
+
   bool IsChanceNode() const override;
+
   Player CurrentPlayer() const override;
+
   std::string ActionToString(Player player, Action move) const override;
+
   std::string ToString() const override;
+
   std::vector<double> Returns() const override;
+
   std::string InformationStateString(Player player) const override;
+
   std::string ObservationString(Player player) const override;
+
   void InformationStateTensor(Player player,
                               absl::Span<float> values) const override;
+
   void ObservationTensor(Player player,
                          absl::Span<float> values) const override;
+
   std::unique_ptr<State> Clone() const override;
 
   // The probability of taking each possible action in a particular info state.
   std::vector<std::pair<Action, double>> ChanceOutcomes() const override;
+
   std::vector<Action> LegalActions() const override;
 
   // Used to make UpdateIncrementalStateDistribution much faster.
   std::unique_ptr<HistoryDistribution> GetHistoriesConsistentWithInfostate(
       int player_id) const override;
 
- protected:
+protected:
   void DoApplyAction(Action action_id) override;
 
- private:
-  void _CalculateActionsAndNodeType();
+private:
 
   double GetTotalReward(Player player) const;
-
-  const uint32_t &GetPossibleActionsMask() const { return possibleActions_; }
-  const int GetPossibleActionCount() const;
-
-  void ApplyChoiceAction(StateActionType action_type, int size);
-  const std::string &GetActionSequence() const { return actionSequence_; }
 
   void AddHoleCard(uint8_t card) {
     Player p = hole_cards_dealt_ / acpc_game_->GetNbHoleCardsRequired();
@@ -114,7 +114,7 @@ class UniversalPokerState : public State {
 
   std::pair<logic::CardSet, logic::CardSet>
   AbstractedHoleAndBoardCards(Player player) const {
-    return card_abstraction_->abstract(HoleCards(player), BoardCards());
+    return GetCardAbstraction()->abstract(HoleCards(player), BoardCards());
   }
 
   logic::CardSet HoleCards(Player player) const {
@@ -149,103 +149,91 @@ class UniversalPokerState : public State {
     return board_cards;
   }
 
+  void AddToActionSequence(uint8_t action, uint32_t size);
+
+  BettingAbstraction GetBettingAbstraction() const;
+
+  std::vector<double> GetBetSet() const;
+
+  card_abstraction::CardAbstraction *GetCardAbstraction() const;
+
+  int PublicObservationTensor(Player player, absl::Span<float> values) const;
+
+  int CalculateBetSize(uint8_t action_id, Player player) const;
+
+  int BigBlind() const;
+
   const acpc_cpp::ACPCGame *acpc_game_;
   mutable acpc_cpp::ACPCState acpc_state_;
   logic::CardSet deck_;  // The remaining cards to deal.
   int hole_cards_dealt_ = 0;
   int board_cards_dealt_ = 0;
 
-  // The current player:
-  // kChancePlayerId for chance nodes
-  // kTerminalPlayerId when we everyone except one player has fold, or that
-  // we have reached the showdown.
-  // The current player >= 0 otherwise.
-  Player cur_player_;
-  uint32_t possibleActions_;
-  int32_t potSize_ = 0;
-  int32_t allInSize_ = 0;
-  std::string actionSequence_;
-
-  BettingAbstraction betting_abstraction_;
-  card_abstraction::CardAbstraction *card_abstraction_;
+  // Action sequence
+  struct PokerAction {
+    uint8_t round;
+    uint8_t player;
+    uint8_t action;
+    uint32_t size;
+  };
+  std::vector<PokerAction> action_sequence_;
 };
 
 class UniversalPokerGame : public Game {
- public:
+public:
   explicit UniversalPokerGame(const GameParameters &params);
 
   int NumDistinctActions() const override;
+
   std::unique_ptr<State> NewInitialState() const override;
+
   int NumPlayers() const override;
+
   double MinUtility() const override;
+
   double MaxUtility() const override;
+
   int MaxChanceOutcomes() const override;
+
   double UtilitySum() const override { return 0; }
+
   std::vector<int> InformationStateTensorShape() const override;
+
   std::vector<int> ObservationTensorShape() const override;
-  int MaxGameLength() const override;
-  BettingAbstraction betting_abstraction() const {
+
+  int MaxGameLength() const override { return 64; } // this is from acpc
+
+  BettingAbstraction GetBettingAbstraction() const {
     return betting_abstraction_;
   }
-  card_abstraction::CardAbstraction* card_abstraction() const {
+
+  std::vector<double> GetBetSet() const {
+    return bet_set_;
+  }
+
+  card_abstraction::CardAbstraction *GetCardAbstraction() const {
     return card_abstraction_;
   }
 
-  int big_blind() const { return big_blind_; }
-  int starting_stack_big_blinds() const { return starting_stack_big_blinds_; }
+  int BigBlind() const {
+    return big_blind_;
+  }
 
- private:
+private:
   std::string gameDesc_;
   const acpc_cpp::ACPCGame acpc_game_;
-  absl::optional<int> max_game_length_;
-  BettingAbstraction betting_abstraction_ = BettingAbstraction::kFULLGAME;
+  BettingAbstraction betting_abstraction_;
+  std::vector<double> bet_set_;
   card_abstraction::CardAbstraction *card_abstraction_;
-
- public:
+  int32_t big_blind_ = 0;
+public:
   const acpc_cpp::ACPCGame *GetACPCGame() const { return &acpc_game_; }
 
   std::string parseParameters(const GameParameters &map);
-  int big_blind_;
-  int starting_stack_big_blinds_;
+
+  uint8_t AllInActionId() const;
 };
 
-// Only supported for UniversalPoker. Randomly plays an action from a fixed list
-// of actions. If none of the actions are legal, checks/calls.
-class UniformRestrictedActions : public Policy {
- public:
-  // Actions will be restricted to this list when legal. If no such action is
-  // legal, checks/calls.
-  explicit UniformRestrictedActions(absl::Span<const ActionType> actions)
-      : actions_(actions.begin(), actions.end()),
-        max_action_(*absl::c_max_element(actions)) {}
-
-  ActionsAndProbs GetStatePolicy(const State &state) const {
-    ActionsAndProbs policy;
-    policy.reserve(actions_.size());
-    const std::vector<Action> legal_actions = state.LegalActions();
-    for (Action action : legal_actions) {
-      if (actions_.contains(static_cast<ActionType>(action))) {
-        policy.emplace_back(action, 1.);
-      }
-      if (policy.size() >= actions_.size() || action > max_action_) break;
-    }
-
-    // It is always legal to check/call.
-    if (policy.empty()) {
-      SPIEL_DCHECK_TRUE(absl::c_find(legal_actions, ActionType::kCall) !=
-                        legal_actions.end());
-      policy.push_back({static_cast<Action>(ActionType::kCall), 1.});
-    }
-
-    // If we have a non-empty policy, normalize it!
-    if (policy.size() > 1) NormalizePolicy(&policy);
-    return policy;
-  }
-
- private:
-  const absl::flat_hash_set<ActionType> actions_;
-  const ActionType max_action_;
-};
 
 std::ostream &operator<<(std::ostream &os, const BettingAbstraction &betting);
 }  // namespace universal_poker
