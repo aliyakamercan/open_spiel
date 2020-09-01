@@ -45,6 +45,9 @@
 #include "pybind11/include/pybind11/stl.h"
 
 // List of optional python submodules.
+#if BUILD_WITH_ACPC
+#include "open_spiel/games/universal_poker.h"
+#endif
 #if BUILD_WITH_GAMUT
 #include "open_spiel/games/gamut/gamut_pybind11.h"
 #endif
@@ -442,6 +445,16 @@ PYBIND11_MODULE(pyspiel, m) {
             return std::const_pointer_cast<TensorGame>(
                 algorithms::LoadTensorGame(data));
           }));
+
+#if BUILD_WITH_ACPC
+  py::class_<universal_poker::UniversalPokerGame, std::shared_ptr<universal_poker::UniversalPokerGame>> poker_game(
+      m, "UniversalPokerGame", normal_form_game);
+  poker_game
+      .def(py::init<GameParameters>())
+      .def("num_suits", &universal_poker::UniversalPokerGame::NumSuits)
+      .def("num_ranks", &universal_poker::UniversalPokerGame::NumRanks)
+      .def("state_from_acpc_state", &universal_poker::UniversalPokerGame::StateFromACPCState);
+#endif
 
   m.def("hulh_game_string", &open_spiel::HulhGameString);
   m.def("hunl_game_string", &open_spiel::HunlGameString);

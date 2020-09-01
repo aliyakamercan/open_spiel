@@ -219,6 +219,13 @@ public:
     return big_blind_;
   }
 
+  uint8_t NumSuits() const;
+
+  uint8_t NumRanks() const;
+
+  std::unique_ptr<State> StateFromACPCState(std::string acpc_state) const;
+
+
 private:
   std::string gameDesc_;
   const acpc_cpp::ACPCGame acpc_game_;

@@ -227,7 +227,6 @@ int UniversalPokerState::CalculateBetSize(uint8_t action_id, Player player) cons
     return (action_id - 1) * BigBlind();
   } else if (GetBettingAbstraction() == BettingAbstraction::kDiscreteNoLimit) {
     auto pot_fraction = GetBetSet()[action_id - kBet];
-    // TODO: does this include last bet?
     auto pot_and_amount_to_call = acpc_state_.TotalSpent();
     auto amount_to_call = acpc_state_.MaxSpend() - acpc_state_.CurrentSpent(player);
     return round(amount_to_call + pot_and_amount_to_call * pot_fraction);
@@ -276,7 +275,6 @@ std::vector<double> UniversalPokerState::Returns() const {
 
 int UniversalPokerState::PublicObservationTensor(Player player, absl::Span<float> values) const {
   std::fill(values.begin(), values.end(), 0.);
-  // TODO: normalize over max buy in
   // """"""""""""
   // Table State
   // """"""""""""
@@ -772,7 +770,6 @@ double UniversalPokerGame::MaxUtility() const {
   // The most a player can win *per opponent* is the most each player can put
   // into the pot, which is the raise amounts on each round times the maximum
   // number raises, plus the original chip they put in to play.
-  // TODO: check this logic
   return (double) acpc_game_.StackSize(0) * (acpc_game_.GetNbPlayers() - 1);
 }
 
@@ -855,6 +852,19 @@ uint8_t UniversalPokerGame::AllInActionId() const {
   } else { // disc no limit
     return 2 + bet_set_.size();
   }
+}
+
+uint8_t UniversalPokerGame::NumSuits() const {
+  return acpc_game_.NumSuitsDeck();
+}
+
+uint8_t UniversalPokerGame::NumRanks() const{
+  return acpc_game_.NumRanksDeck();
+}
+
+std::unique_ptr<State> UniversalPokerGame::StateFromACPCState(std::string acpc_state) const {
+  // TODO: parse and apply state
+  return NewInitialState();
 }
 
 std::ostream &operator<<(std::ostream &os, const BettingAbstraction &betting) {
