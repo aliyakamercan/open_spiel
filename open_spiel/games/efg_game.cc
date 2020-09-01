@@ -26,6 +26,7 @@
 #include "open_spiel/abseil-cpp/absl/strings/str_split.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_utils.h"
+#include "open_spiel/utils/file.h"
 
 namespace open_spiel {
 namespace efg_game {
@@ -214,7 +215,8 @@ int EFGGame::MaxGameLength() const { return max_depth_; }
 
 EFGGame::EFGGame(const GameParameters& params)
     : Game(kGameType, params),
-      string_data_(""),
+      filename_(ParameterValue<std::string>("filename")),
+      string_data_(file::ReadContentsFromFile(filename_, "r")),
       pos_(0),
       num_chance_nodes_(0),
       max_actions_(0),
@@ -223,23 +225,6 @@ EFGGame::EFGGame(const GameParameters& params)
       identical_payoffs_(true),
       general_sum_(true),
       perfect_information_(true) {
-  filename_ = ParameterValue<std::string>("filename");
-
-  std::ifstream file;
-  file.open(filename_.c_str());
-  if (!file.is_open()) {
-    SpielFatalError(absl::StrCat("Could not open input file: ", filename_));
-  }
-
-  string_data_ = "";
-  char buffer[kBuffSize];
-  while (!file.eof()) {
-    memset(buffer, 0, kBuffSize);
-    file.read(buffer, kBuffSize - 1);
-    absl::StrAppend(&string_data_, buffer);
-  }
-  file.close();
-
   SPIEL_CHECK_GT(string_data_.size(), 0);
 
   // Now parse the string data into a data structure.

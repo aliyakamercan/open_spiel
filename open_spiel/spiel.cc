@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
 #include "open_spiel/abseil-cpp/absl/random/distributions.h"
 #include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
 #include "open_spiel/abseil-cpp/absl/strings/str_join.h"
@@ -38,6 +39,7 @@ namespace {
 constexpr const int kSerializationVersion = 1;
 constexpr const char* kSerializeMetaSectionHeader = "[Meta]";
 constexpr const char* kSerializeGameSectionHeader = "[Game]";
+constexpr const char* kSerializeGameRNGStateSectionHeader = "[GameRNGState]";
 constexpr const char* kSerializeStateSectionHeader = "[State]";
 
 // Returns the available parameter keys, to be used as a utility function.
@@ -175,6 +177,28 @@ std::vector<GameType> RegisteredGameTypes() {
   return GameRegisterer::RegisteredGames();
 }
 
+std::shared_ptr<const Game> DeserializeGame(const std::string& serialized) {
+  std::pair<std::string, std::string> game_and_rng_state =
+      absl::StrSplit(serialized, kSerializeGameRNGStateSectionHeader);
+
+  // Remove the trailing "\n" from the game section.
+  if (game_and_rng_state.first.length() > 0 &&
+      game_and_rng_state.first.back() == '\n') {
+    game_and_rng_state.first.pop_back();
+  }
+  std::shared_ptr<const Game> game = LoadGame(game_and_rng_state.first);
+
+  if (game_and_rng_state.second.length() > 0) {
+    // Game is implicitly stochastic.
+    // Remove the trailing "\n" from the RNG state section.
+    if (game_and_rng_state.second.back() == '\n') {
+      game_and_rng_state.second.pop_back();
+    }
+    game->SetRNGState(game_and_rng_state.second);
+  }
+  return game;
+}
+
 std::shared_ptr<const Game> LoadGame(const std::string& game_string) {
   return LoadGame(GameParametersFromString(game_string));
 }
@@ -212,13 +236,9 @@ State::State(std::shared_ptr<const Game> game)
       game_(game) {}
 
 void NormalizePolicy(ActionsAndProbs* policy) {
-  double sum = 0;
-  for (const std::pair<Action, double>& outcome : *policy) {
-    sum += outcome.second;
-  }
-  for (std::pair<Action, double>& outcome : *policy) {
-    outcome.second /= sum;
-  }
+  const double sum = absl::c_accumulate(
+      *policy, 0.0, [](double& a, auto& b) { return a + b.second; });
+  absl::c_for_each(*policy, [sum](auto& o) { o.second /= sum; });
 }
 
 std::pair<Action, double> SampleAction(const ActionsAndProbs& outcomes,
@@ -355,7 +375,7 @@ std::string SerializeGameAndState(const Game& game, const State& state) {
 
   // Game section.
   absl::StrAppend(&str, kSerializeGameSectionHeader, "\n");
-  absl::StrAppend(&str, game.ToString(), "\n");
+  absl::StrAppend(&str, game.Serialize(), "\n");
 
   // State section.
   absl::StrAppend(&str, kSerializeStateSectionHeader, "\n");
@@ -371,11 +391,6 @@ DeserializeGameAndState(const std::string& serialized_state) {
   enum Section { kInvalid = -1, kMeta = 0, kGame = 1, kState = 2 };
   std::vector<std::string> section_strings = {"", "", ""};
   Section cur_section = kInvalid;
-
-  std::string game_string = "";
-  std::string state_string = "";
-  std::shared_ptr<const Game> game = nullptr;
-  std::unique_ptr<State> state = nullptr;
 
   for (int i = 0; i < lines.size(); ++i) {
     if (lines[i].length() == 0 || lines[i].at(0) == '#') {
@@ -406,8 +421,9 @@ DeserializeGameAndState(const std::string& serialized_state) {
   }
 
   // We currently just ignore the meta section.
-  game = LoadGame(section_strings[kGame]);
-  state = game->DeserializeState(section_strings[kState]);
+  std::shared_ptr<const Game> game = DeserializeGame(section_strings[kGame]);
+  std::unique_ptr<State> state =
+      game->DeserializeState(section_strings[kState]);
 
   return std::pair<std::shared_ptr<const Game>, std::unique_ptr<State>>(
       game, std::move(state));
@@ -558,6 +574,15 @@ std::istream& operator>>(std::istream& stream, GameType::RewardModel& var) {
   return stream;
 }
 
+std::string Game::Serialize() const {
+  std::string str = ToString();
+  if (GetType().chance_mode == GameType::ChanceMode::kSampledStochastic) {
+    absl::StrAppend(&str, "\n", kSerializeGameRNGStateSectionHeader, "\n",
+                    GetRNGState());
+  }
+  return str;
+}
+
 std::string Game::ToString() const {
   GameParameters params = game_parameters_;
   params["name"] = GameParameter(game_type_.short_name);
@@ -604,10 +629,9 @@ std::string GameTypeToString(const GameType& game_type) {
   absl::StrAppend(&str, "provides_observation_tensor: ",
                   game_type.provides_observation_tensor ? "true" : "false",
                   "\n");
-  absl::StrAppend(&str, "provides_factored_observation_string: ",
-                  game_type.provides_factored_observation_string
-                  ? "true" : "false",
-                  "\n");
+  absl::StrAppend(
+      &str, "provides_factored_observation_string: ",
+      game_type.provides_factored_observation_string ? "true" : "false", "\n");
 
   // Check that there are no newlines in the serialized params.
   std::string serialized_params =
