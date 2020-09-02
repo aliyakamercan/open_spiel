@@ -283,7 +283,7 @@ int UniversalPokerState::PublicObservationTensor(Player player, absl::Span<float
   bool valid_to_raise = acpc_state_.RaiseIsValid(&min_bet_size, &max_bet_size);
   values[0] = valid_to_raise ? double(min_bet_size) / BigBlind() : 0;
   values[1] = double(acpc_state_.TotalSpent()) / BigBlind();
-  values[2] = double(acpc_state_.MaxSpend()) / BigBlind();
+  values[2] = double(acpc_state_.MaxSpend() - acpc_state_.CurrentSpent(player)) / BigBlind();
 
   int offset = 3;
   // last action
