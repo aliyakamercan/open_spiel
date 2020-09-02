@@ -453,7 +453,20 @@ PYBIND11_MODULE(pyspiel, m) {
       .def(py::init<GameParameters>())
       .def("num_suits", &universal_poker::UniversalPokerGame::NumSuits)
       .def("num_ranks", &universal_poker::UniversalPokerGame::NumRanks)
-      .def("state_from_acpc_state", &universal_poker::UniversalPokerGame::StateFromACPCState);
+      .def("num_rounds", &universal_poker::UniversalPokerGame::NumRounds)
+      .def("state_from_acpc_state", &universal_poker::UniversalPokerGame::StateFromACPCState)
+      .def(py::pickle(                            // Pickle support
+          [](std::shared_ptr<const universal_poker::UniversalPokerGame> game) {  // __getstate__
+            return game->Serialize();
+          },
+          [](const std::string& data) {  // __setstate__
+            // Have to remove the const here for this to compile, presumably
+            // because the holder type is non-const. But seems like you can't
+            // set the holder type to std::shared_ptr<const Game> either.
+            std::shared_ptr<const Game> game = DeserializeGame(data);
+            return std::const_pointer_cast<universal_poker::UniversalPokerGame>(
+                std::static_pointer_cast<const universal_poker::UniversalPokerGame>(game));
+          }));
 #endif
 
   m.def("hulh_game_string", &open_spiel::HulhGameString);

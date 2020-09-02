@@ -862,6 +862,10 @@ uint8_t UniversalPokerGame::NumRanks() const{
   return acpc_game_.NumRanksDeck();
 }
 
+uint8_t UniversalPokerGame::NumRounds() const{
+  return acpc_game_.NumRounds();
+}
+
 std::unique_ptr<State> UniversalPokerGame::StateFromACPCState(std::string acpc_state) const {
   // TODO: parse and apply state
   return NewInitialState();

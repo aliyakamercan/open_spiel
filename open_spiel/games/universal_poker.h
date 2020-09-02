@@ -223,6 +223,8 @@ public:
 
   uint8_t NumRanks() const;
 
+  uint8_t NumRounds() const;
+
   std::unique_ptr<State> StateFromACPCState(std::string acpc_state) const;
 
 
