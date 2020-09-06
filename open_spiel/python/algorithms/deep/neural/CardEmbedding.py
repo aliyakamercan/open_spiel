@@ -2,12 +2,8 @@ import numpy as np
 import torch
 from torch import nn
 
-# TODO: change these to be read from game
-NUM_ROUNDS = 1
-NUM_RANKS = 3
-NUM_SUITS = 1
-NUM_PLAYERS = 2
-NUM_CARDS = 1
+
+NUM_CARDS = 52
 
 
 class CardEmbedding(nn.Module):
@@ -17,13 +13,15 @@ class CardEmbedding(nn.Module):
         self._game = game
         self._device = device
 
-        # number of rounds TODO: fix
-        n_card_types = NUM_ROUNDS
+        self.board_start = -(self._game.num_hole_cards() + self._game.total_board_cards())
+        self.hole_start = -self._game.num_hole_cards()
+
+        self._n_card_types = game.num_rounds()
         self.card_embs = nn.ModuleList([
             _CardGroupEmb(game=game, dim=dim)
-            for _ in range(n_card_types)
+            for _ in range(self._n_card_types)
         ])
-        self._n_card_types = n_card_types
+
         self._dim = dim
 
         self.to(device)
@@ -38,23 +36,29 @@ class CardEmbedding(nn.Module):
 
     def forward(self, info_state):
 
-        priv_cards = info_state[:, NUM_PLAYERS:NUM_CARDS+NUM_PLAYERS].round().to(torch.long)
+        priv_cards = info_state[:, self.hole_start:].round().to(torch.long)
+        board_cards = info_state[:, self.board_start:self.hole_start].round().to(torch.long)
 
         # TODO: board cards
 
-        card_batches = [(priv_cards // 4, priv_cards % 4, priv_cards)]
+        card_batches = [(
+            priv_cards[:, 0:self._game.num_hole_cards()] // 4,
+            priv_cards[:, 0:self._game.num_hole_cards()] % 4,
+            priv_cards[:, 0:self._game.num_hole_cards()]
+        )]
 
         off = 0
-        # for round_ in self._game.rules.ALL_ROUNDS_LIST:
-        #     n = self._game.lut_holder.DICT_LUT_CARDS_DEALT_IN_TRANSITION_TO[round_]
-        #     if n > 0:
-        #         card_batches.append(
-        #             # rank, suit, card
-        #             (board[:, off:off + 3 * n:3],
-        #              board[:, off + 1:off + 1 + 3 * n:3],
-        #              board[:, off + 2:off + 2 + 3 * n:3],)
-        #         )
-        #         off += n
+        for round_ in range(1, self._n_card_types):
+            n = self._game.board_cards_for_round(round)
+            if n > 0:
+                round_cards = board_cards[:, off:off+n*3]
+                card_batches.append(
+                     # rank, suit, card
+                     (round_cards[:, off    :off + n] // 4,
+                      round_cards[:, off + 1:off + n] % 4,
+                      round_cards[:, off + 2:off + n])
+                )
+                off += n
 
         card_o = []
         for emb, (ranks, suits, cards) in zip(self.card_embs, card_batches):
@@ -69,9 +73,9 @@ class _CardGroupEmb(nn.Module):
         super().__init__()
         self._game = game
         self._dim = dim
-        self.rank = nn.Embedding(NUM_RANKS, dim)
-        self.suit = nn.Embedding(NUM_SUITS, dim)
-        self.card = nn.Embedding(52, dim)
+        self.rank = nn.Embedding(game.num_ranks(), dim)
+        self.suit = nn.Embedding(game.num_suits(), dim)
+        self.card = nn.Embedding(NUM_CARDS, dim)
 
     def forward(self, ranks, suits, cards):
 

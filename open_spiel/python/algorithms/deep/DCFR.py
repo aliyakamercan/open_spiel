@@ -1,6 +1,7 @@
 import copy
 import time
 import logging
+import pickle
 
 
 import numpy as np
@@ -55,6 +56,7 @@ class DCFR(policy.Policy):
         self._avrg_args = t_prof.module_args["avrg_training"]
         self._baseline_args = t_prof.module_args["mccfr_baseline"]
         self._exp_writer = self.create_summary_writer("Exploitibility")
+        self._iter_nr = 0
 
         logging.info("Setting up advantage buffers.")
         self._adv_buffers = [
@@ -154,13 +156,15 @@ class DCFR(policy.Policy):
             raise ValueError("Currently we don't support", self._t_prof.sampler.lower(), "sampling.")
 
     def solve(self):
-        for iter_nr in range(self._num_iterations):
-            logging.info("Iteration: {}".format(iter_nr))
-            data_gen_time, training_time = self.run_one_iter_alternating_update(cfr_iter=iter_nr)
+        while self._iter_nr < self._num_iterations:
+            logging.info("Iteration: {}".format(self._iter_nr))
+            data_gen_time, training_time = self.run_one_iter_alternating_update(cfr_iter=self._iter_nr)
             logging.info("\t Data gen took {} seconds.".format(data_gen_time))
             logging.info("\t Training took {} seconds.".format(training_time))
 
-            self.evaluate(iter_nr)
+            self.evaluate(self._iter_nr)
+            self.maybe_checkpoint()
+            self._iter_nr += 1
 
         if self._AVRG:
             self._train_average_nets(self._num_iterations-1)
@@ -223,7 +227,7 @@ class DCFR(policy.Policy):
         self.train_network(self._avrg_wrappers[p_id],
                            self._avrg_buffers[p_id],
                            writer,
-                           self._avrg_args.n_batches_adv_training)
+                           self._avrg_args.n_batches_avrg_training)
 
     # """"""""""""""""
     # STORE ITERATION STRATEGIES
@@ -380,19 +384,60 @@ class DCFR(policy.Policy):
     # """""""""""""""""
     # SAVE / LOAD
     # """""""""""""""""
+    def maybe_checkpoint(self):
+        if self._iter_nr + 1 % self._t_prof.checkpoint_freq == 0:
+            logging.info("Check pointing")
+            self.save()
 
     def save(self):
-        state = {}
+        state = {
+            'advantage_buffers': [
+                self._adv_buffers[p_id].state_dict()
+                for p_id in range(self._num_players)
+            ],
+            'iter': self._iter_nr
+        }
+
         if self._AVRG:
-            state['avg_nets'] = [
+            state['avg_wrappers'] = [
                 self._avrg_wrappers[p_id].state_dict()
                 for p_id in range(self._num_players)
             ]
-        if self._SINGLE:
-            state['strategy_buffers'] = [
-                map(lambda x: x.state_dict(), self._strategy_buffers[p_id].state_dict())
+            state['avg_buffers'] = [
+                self._avrg_buffers[p_id].state_dict()
                 for p_id in range(self._num_players)
             ]
+
+        if self._SINGLE:
+            state['strategy_buffers'] = [
+                self._strategy_buffers[p_id].state_dict()
+                for p_id in range(self._num_players)
+            ]
+
+        if self._BASELINE:
+            state['baseline_buffer'] = self._baseline_buf.state_dict()
+            state['baseline_wrapper'] = self._baseline_wrapper.state_dict()
+
+        with open("%s/%s" % (self._t_prof.checkpoint_dir, self._t_prof.name), "wb") as pkl_file:
+            pickle.dump(obj=state, file=pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def load(self, path):
+        with open(path, "rb") as pkl_file:
+            state = pickle.load(pkl_file)
+
+        for p_id in range(self._num_players):
+            self._adv_buffers[p_id].load_state_dict(state['advantage_buffers'][p_id])
+            if self._AVRG:
+                self._avrg_wrappers[p_id].load_state_dict(state['avg_wrappers'][p_id])
+                self._avrg_buffers[p_id].load_state_dict(state['avg_buffers'][p_id])
+            if self._SINGLE:
+                self._strategy_buffers[p_id].load_state_dict(state['strategy_buffers'][p_id])
+
+        if self._BASELINE:
+            self._baseline_buf.load_state_dict(state['baseline_buffer'])
+            self._baseline_wrapper.load_state_dict(state['baseline_wrapper'])
+
+        self._iter_nr = state['iter']
 
     # """""""""""""""
     # utils

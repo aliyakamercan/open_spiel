@@ -38,25 +38,13 @@ class NetWrapperBase:
             return
 
         loss = 0.0
-        for micro_batch_id in range(self._args.n_mini_batches_per_update):
-            loss += self._mini_batch_loop(buffer=buffer)
+        loss += self._mini_batch_loop(buffer=buffer)
 
-        self.loss_last_batch = loss / self._args.n_mini_batches_per_update
+        self.loss_last_batch = loss
         return self.loss_last_batch
 
-    def _apply_grads(self, list_of_grads, optimizer, grad_norm_clip=None):
-        # optimizer.zero_grad()
-
-        if grad_norm_clip is not None:
-                torch.nn.utils.clip_grad_norm_(parameters=self._net.parameters(), max_norm=grad_norm_clip)
-
-        optimizer.step()
-
-    def apply_grads(self, grads):
-        self._apply_grads(grads, self._optim, self._args.grad_norm_clipping)
-
     def step_scheduler(self, loss):
-        if loss:
+        if loss and self._lr_scheduler:
             self._lr_scheduler.step(loss)
 
     def _mini_batch_loop(self, buffer):
@@ -93,7 +81,6 @@ class NetWrapperArgsBase:
 
     def __init__(self,
                  batch_size,
-                 n_mini_batches_per_update,
                  optim_str,
                  loss_str,
                  lr,
@@ -102,7 +89,6 @@ class NetWrapperArgsBase:
                  ):
         assert isinstance(device_training, str), "Please pass a string (either 'cpu' or 'cuda')!"
         self.batch_size = batch_size
-        self.n_mini_batches_per_update = n_mini_batches_per_update
         self.optim_str = optim_str
         self.loss_str = loss_str
         self.lr = lr

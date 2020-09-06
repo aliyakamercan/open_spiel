@@ -31,7 +31,6 @@ class AdvWrapper(NetWrapperBase):
             = buffer.sample(device=self.device, batch_size=self._args.batch_size)
         self._net.train()
 
-        self._optim.zero_grad()
         # [batch_size, n_actions]
         adv_pred = self._net(info_state=batch_pub_obs,
                              legal_action_masks=batch_legal_action_masks)
@@ -42,7 +41,7 @@ class AdvWrapper(NetWrapperBase):
                                batch_loss_weight.unsqueeze(-1).expand_as(batch_adv))
 
         # Zero gradients, perform a backward pass, and update the weights.
-
+        self._optim.zero_grad()
         loss.backward()
 
         if self._args.grad_norm_clipping is not None:
@@ -79,7 +78,6 @@ class AdvTrainingArgs(NetWrapperArgsBase):
                  adv_net_args,
                  n_batches_adv_training=1000,
                  batch_size=4096,
-                 n_mini_batches_per_update=1,
                  optim_str="adam",
                  loss_str="weighted_mse",
                  lr=0.001,
@@ -89,7 +87,7 @@ class AdvTrainingArgs(NetWrapperArgsBase):
                  lr_patience=100,
                  init_adv_model="last",
                  ):
-        super().__init__(batch_size=batch_size, n_mini_batches_per_update=n_mini_batches_per_update,
+        super().__init__(batch_size=batch_size,
                          optim_str=optim_str, loss_str=loss_str, lr=lr, grad_norm_clipping=grad_norm_clipping,
                          device_training=device_training)
         self.adv_net_args = adv_net_args

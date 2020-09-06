@@ -5,7 +5,6 @@ from open_spiel.python.algorithms.deep.wrappers.AvrgWrapper import AvrgTrainingA
 from open_spiel.python.algorithms.deep.wrappers.BaselineWrapper import BaselineArgs
 from open_spiel.python.algorithms.deep.neural import AvrgNetArgs, DuelingQArgs
 from open_spiel.python.algorithms.deep.neural.MainPokerModuleFLAT import MPMArgsFLAT
-from open_spiel.python.algorithms.deep.neural.MainPokerModuleFLAT_Baseline import MPMArgsFLAT_Baseline
 
 
 class TrainingProfile:
@@ -15,6 +14,9 @@ class TrainingProfile:
                  # ------ General
                  nn_type="feedforward",  # "recurrent" or "feedforward"
                  log_verbose=True,
+                 checkpoint_dir="checkpoints",
+                 checkpoint_freq=20,
+
                  # ------ Computing
                  device_inference="cpu",
                  device_training="cpu",
@@ -47,7 +49,6 @@ class TrainingProfile:
                  init_adv_model="random",
                  mini_batch_size_adv=2048,
                  dim_adv=64,
-                 n_mini_batches_per_la_per_update_adv=1,  # TODO: remove
                  optimizer_adv="adam",
                  loss_adv="weighted_mse",
                  lr_adv=0.001,
@@ -83,8 +84,8 @@ class TrainingProfile:
                                    normalize=normalize_last_layer_flat_adv)
         mpm_args_avrg = MPMArgsFLAT(other_units=dim_avrg,
                                     normalize=normalize_last_layer_flat_avrg)
-        mpm_args_baseline = MPMArgsFLAT_Baseline(dim=dim_baseline,
-                                                 normalize=normalize_last_layer_FLAT_baseline)
+        mpm_args_baseline = MPMArgsFLAT(other_units=dim_baseline,
+                                        normalize=normalize_last_layer_FLAT_baseline)
         # t_prof
         self.name = name
         self.nn_type = nn_type
@@ -97,7 +98,6 @@ class TrainingProfile:
                     n_batches_adv_training=n_batches_adv_training,
                     init_adv_model=init_adv_model,
                     batch_size=mini_batch_size_adv,
-                    n_mini_batches_per_update=n_mini_batches_per_la_per_update_adv,
                     optim_str=optimizer_adv,
                     loss_str=loss_adv,
                     lr=lr_adv,
@@ -114,7 +114,6 @@ class TrainingProfile:
                     n_batches_avrg_training=n_batches_avrg_training,
                     init_avrg_model=init_avrg_model,
                     batch_size=mini_batch_size_avrg,
-                    n_mini_batches_per_update=n_mini_batches_per_la_per_update_avrg,
                     loss_str=loss_avrg,
                     optim_str=optimizer_avrg,
                     lr=lr_avrg,
@@ -145,6 +144,8 @@ class TrainingProfile:
         self.iter_weighting_exponent = iter_weighting_exponent
         self.sampler = sampler
         self.n_actions_traverser_samples = n_actions_traverser_samples
+        self.checkpoint_dir = checkpoint_dir
+        self.checkpoint_freq = checkpoint_freq
 
         self.eval_every_n_iters = eval_every_n_iters
         # SINGLE

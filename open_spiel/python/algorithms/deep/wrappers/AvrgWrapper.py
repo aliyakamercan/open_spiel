@@ -95,7 +95,6 @@ class AvrgTrainingArgs(NetWrapperArgsBase):
                  avrg_net_args,
                  n_batches_avrg_training=1000,
                  batch_size=4096,
-                 n_mini_batches_per_update=1,
                  optim_str="adam",
                  loss_str="weighted_mse",
                  lr=0.001,
@@ -106,7 +105,6 @@ class AvrgTrainingArgs(NetWrapperArgsBase):
                  init_avrg_model="random",
                  ):
         super().__init__(batch_size=batch_size,
-                         n_mini_batches_per_update=n_mini_batches_per_update,
                          optim_str=optim_str,
                          loss_str=loss_str,
                          lr=lr,

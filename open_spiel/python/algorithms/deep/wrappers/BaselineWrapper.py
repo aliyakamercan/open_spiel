@@ -108,7 +108,6 @@ class BaselineArgs(NetWrapperArgsBase):
                          optim_str=optim_str,
                          loss_str=loss_str,
                          lr=lr,
-                         n_mini_batches_per_update=1,
                          grad_norm_clipping=grad_norm_clipping,
                          device_training=device_training)
         self.q_net_args = q_net_args
