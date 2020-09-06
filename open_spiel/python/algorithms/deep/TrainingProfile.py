@@ -22,7 +22,7 @@ class TrainingProfile:
                  device_training="cpu",
 
                  # --- Evaluation
-                 eval_every_n_iters=999999999,
+                 eval_every_n_iters=2,
 
                  # ------ General Deep CFR params
                  n_traversals_per_iter=30000,

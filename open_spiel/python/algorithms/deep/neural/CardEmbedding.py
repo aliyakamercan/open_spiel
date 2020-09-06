@@ -49,14 +49,14 @@ class CardEmbedding(nn.Module):
 
         off = 0
         for round_ in range(1, self._n_card_types):
-            n = self._game.board_cards_for_round(round)
+            n = self._game.board_cards_for_round(round_)
             if n > 0:
-                round_cards = board_cards[:, off:off+n*3]
+                round_cards = board_cards[:, off:off+n]
                 card_batches.append(
                      # rank, suit, card
-                     (round_cards[:, off    :off + n] // 4,
-                      round_cards[:, off + 1:off + n] % 4,
-                      round_cards[:, off + 2:off + n])
+                     (round_cards[:, off:off + n] // 4,
+                      round_cards[:, off:off + n] % 4,
+                      round_cards[:, off:off + n])
                 )
                 off += n
 
@@ -73,8 +73,8 @@ class _CardGroupEmb(nn.Module):
         super().__init__()
         self._game = game
         self._dim = dim
-        self.rank = nn.Embedding(game.num_ranks(), dim)
-        self.suit = nn.Embedding(game.num_suits(), dim)
+        self.rank = nn.Embedding(13, dim)
+        self.suit = nn.Embedding(4, dim)
         self.card = nn.Embedding(NUM_CARDS, dim)
 
     def forward(self, ranks, suits, cards):

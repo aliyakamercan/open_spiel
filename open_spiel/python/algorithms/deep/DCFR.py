@@ -385,7 +385,7 @@ class DCFR(policy.Policy):
     # SAVE / LOAD
     # """""""""""""""""
     def maybe_checkpoint(self):
-        if self._iter_nr + 1 % self._t_prof.checkpoint_freq == 0:
+        if (self._iter_nr + 1) % self._t_prof.checkpoint_freq == 0:
             logging.info("Check pointing")
             self.save()
 
@@ -418,7 +418,7 @@ class DCFR(policy.Policy):
             state['baseline_buffer'] = self._baseline_buf.state_dict()
             state['baseline_wrapper'] = self._baseline_wrapper.state_dict()
 
-        with open("%s/%s" % (self._t_prof.checkpoint_dir, self._t_prof.name), "wb") as pkl_file:
+        with open("%s/%s.dcfr" % (self._t_prof.checkpoint_dir, self._t_prof.name), "wb") as pkl_file:
             pickle.dump(obj=state, file=pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
 
     def load(self, path):
@@ -451,8 +451,8 @@ class DCFR(policy.Policy):
 
     @staticmethod
     def train_network(wrapper, buffer, writer, epochs, reset=True):
-        if reset:
-            wrapper.reset()
+        # if reset:
+        #     wrapper.reset()
         for epoch_nr in range(epochs):
             averaged_loss = wrapper.train_one_loop(buffer=buffer)
             if averaged_loss:
