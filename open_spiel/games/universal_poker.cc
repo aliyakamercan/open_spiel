@@ -109,7 +109,7 @@ const GameType kGameType{
                        // The number of different ranks in the deck
                        {"numRanks", GameParameter(6)},
                        // The number of private cards to  deal to each player
-                       {"numHoleCards", GameParameter(1)},
+                       {"numHoleCards", GameParameter(std::string("1"))},
                        // The number of cards revealed on each round
                        {"numBoardCards", GameParameter(std::string("0 1"))},
 
@@ -785,7 +785,7 @@ std::string UniversalPokerGame::parseParameters(const GameParameters &map) {
       "numsuits = ", ParameterValue<int>("numSuits"), "\n",
       "firstPlayer = ", ParameterValue<std::string>("firstPlayer"), "\n",
       "numRanks = ", ParameterValue<int>("numRanks"), "\n",
-      "numHoleCards = ", ParameterValue<int>("numHoleCards"), "\n",
+      "numHoleCards = ", ParameterValue<std::string>("numHoleCards"), "\n",
       "numBoardCards = ", ParameterValue<std::string>("numBoardCards"), "\n");
 
   std::string max_raises = ParameterValue<std::string>("maxRaises");
