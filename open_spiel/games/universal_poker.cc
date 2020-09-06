@@ -267,7 +267,7 @@ std::vector<double> UniversalPokerState::Returns() const {
   std::vector<double> returns(NumPlayers());
   for (Player player = 0; player < NumPlayers(); ++player) {
     // Money vs money at start.
-    returns[player] = GetTotalReward(player);
+    returns[player] = GetTotalReward(player) / BigBlind();
   }
 
   return returns;
@@ -278,34 +278,14 @@ int UniversalPokerState::PublicObservationTensor(Player player, absl::Span<float
   // """"""""""""
   // Table State
   // """"""""""""
-  int32_t min_bet_size = 0;
-  int32_t max_bet_size = 0;
-  bool valid_to_raise = acpc_state_.RaiseIsValid(&min_bet_size, &max_bet_size);
-  values[0] = valid_to_raise ? double(min_bet_size) / BigBlind() : 0;
-  values[1] = double(acpc_state_.TotalSpent()) / BigBlind();
-  values[2] = double(acpc_state_.MaxSpend() - acpc_state_.CurrentSpent(player)) / BigBlind();
-
-  int offset = 3;
-  // last action
-  if (!action_sequence_.empty()) {
-    values[offset] = double(action_sequence_.back().size) / BigBlind();
-  }
-  offset += 1;
-
-  // last actor
-  if (!action_sequence_.empty()) {
-    int last_actor = action_sequence_.back().player;
-    values[offset + last_actor] = 1;
-  }
-  offset += NumPlayers();
-
+  int offset = 0;
   // current actor
   values[offset + player] = 1;
   offset += NumPlayers();
 
   // round
-  values[offset] = acpc_state_.GetRound();
-  offset += 1;
+  values[offset + acpc_state_.GetRound()] = 1;
+  offset += acpc_game_->NumRounds();
 
   // """"""""""""
   // Players State
@@ -318,24 +298,34 @@ int UniversalPokerState::PublicObservationTensor(Player player, absl::Span<float
     values[offset + 3] = acpc_state_.Money(p) == 0; // player is all in
     offset += 4;
   }
+
   // """"""""""""
   // History
+  // Action = action size (call/bet/raise) -1 means action not taken
+  // One Round = [p1 action | p2 action | p3 action | p4 action ] * 4
+  // History = [Round] * 4
   // """"""""""""
+  auto history_len = kMaxActionsPerPlayerPerRound * acpc_game_->GetNbPlayers() * acpc_game_->NumRounds();
+
+  std::fill(values.begin() + offset, values.begin() + offset + history_len, -1);
+
   std::vector<int> actions_in_round(acpc_game_->GetNbPlayers(), 0);
   int current_round = 0;
+
   for (PokerAction pa: action_sequence_) {
     if (pa.round > current_round) {
       std::fill(actions_in_round.begin(), actions_in_round.end(), 0);
       current_round = pa.round;
     }
     int round_offset = pa.round * (kMaxActionsPerPlayerPerRound * acpc_game_->GetNbPlayers());
-    int player_offset = pa.player * kMaxActionsPerPlayerPerRound;
-    int action_offset = actions_in_round[pa.player]++;
+    int player_offset = pa.player;
+    int action_offset = actions_in_round[pa.player]++ * kMaxActionsPerPlayerPerRound;
     int total_offset = round_offset + player_offset + action_offset;
     values[offset + total_offset] = double(pa.size) / BigBlind();
   }
 
-  offset += 4 * acpc_game_->GetNbPlayers() * acpc_game_->NumRounds();
+  offset += history_len;
+
   return offset;
 }
 
@@ -357,15 +347,11 @@ void UniversalPokerState::InformationStateTensor(
   for (int i = 0; i < acpc_game_->GetTotalNbBoardCards(); i++) {
     if (i < boardCardsArr.size()) {
       auto card = boardCardsArr[i];
-      values[offset] = card / kMaxSuits;
-      values[offset + 1] = card % kMaxSuits;
-      values[offset + 2] = card;
+      values[offset] = card;
     } else {
       values[offset] = kCardNotDealt;
-      values[offset + 1] = kCardNotDealt;
-      values[offset + 2] = kCardNotDealt;
     }
-    offset += 3;
+    offset += 1;
   }
 
   auto holeCardsArr = holeCards.ToCardArray();
@@ -373,15 +359,11 @@ void UniversalPokerState::InformationStateTensor(
   for (int i = 0; i < acpc_game_->GetNbHoleCardsRequired(); i++) {
     if (i < holeCardsArr.size()) {
       auto card = holeCardsArr[i];
-      values[offset] = card / kMaxSuits;
-      values[offset + 1] = card % kMaxSuits;
-      values[offset + 2] = card;
+      values[offset] = card;
     } else {
       values[offset] = kCardNotDealt;
-      values[offset + 1] = kCardNotDealt;
-      values[offset + 2] = kCardNotDealt;
     }
-    offset += 3;
+    offset += 1;
   }
 
   SPIEL_CHECK_EQ(offset, game_->InformationStateTensorShape()[0]);
@@ -404,15 +386,11 @@ void UniversalPokerState::ObservationTensor(Player player,
   for (int i = 0; i < acpc_game_->GetTotalNbBoardCards(); i++) {
     if (i < boardCardsArr.size()) {
       auto card = boardCardsArr[i];
-      values[offset] = card / kMaxSuits;
-      values[offset + 1] = card % kMaxSuits;
-      values[offset + 2] = card;
+      values[offset] = card;
     } else {
       values[offset] = kCardNotDealt;
-      values[offset + 1] = kCardNotDealt;
-      values[offset + 2] = kCardNotDealt;
     }
-    offset += 3;
+    offset += 1;
   }
 
 
@@ -423,15 +401,11 @@ void UniversalPokerState::ObservationTensor(Player player,
     for (int i = 0; i < acpc_game_->GetNbHoleCardsRequired(); i++) {
       if (i < holeCardsArr.size()) {
         auto card = holeCardsArr[i];
-        values[offset] = card / kMaxSuits;
-        values[offset + 1] = card % kMaxSuits;
-        values[offset + 2] = card;
+        values[offset] = card;
       } else {
         values[offset] = kCardNotDealt;
-        values[offset + 1] = kCardNotDealt;
-        values[offset + 2] = kCardNotDealt;
       }
-      offset += 3;
+      offset += 1;
     }
   }
 
@@ -734,32 +708,27 @@ std::unique_ptr<State> UniversalPokerGame::NewInitialState() const {
 
 std::vector<int> UniversalPokerGame::InformationStateTensorShape() const {
   // Table State
-  //    Min Raise, Pot, Biggest Bet To Call, Last Action (Action amount), Last Actor (1 hot),
-  //    Current Actor(1 hot), Current Round
+  //    Current Actor(1 hot), Current Round (1 hot)
   // Players State
   //    Stack, Current Bet, Folded, All In
   // History
   //     Per Round Per Player X 4 (limit max moves by player per round to 4
-  //     Action holds the action value (Raise amount)
-  //     idx of action =
+  //     Action holds the action value (Raise amount) -1 for no action yet
   // Board State
-  //    each card is represented by 3 slots (rank, suit, idx)
   // Private State
-  //    Same as board state for private cards
   const int num_players = acpc_game_.GetNbPlayers();
 
-  const int table_state = 5 + num_players * 2;
+  const int table_state = num_players + acpc_game_.NumRounds();
   const int players_state = 4 * num_players;
   const int history = kMaxActionsPerPlayerPerRound * num_players * acpc_game_.NumRounds();
-  const int board_state = acpc_game_.GetTotalNbBoardCards() * 3;
-  const int private_state = acpc_game_.GetNbHoleCardsRequired() * 3;
-
+  const int board_state = acpc_game_.GetTotalNbBoardCards();
+  const int private_state = acpc_game_.GetNbHoleCardsRequired();
   return {table_state + players_state + history + board_state + private_state};
 }
 
 std::vector<int> UniversalPokerGame::ObservationTensorShape() const {
   // Same as info state but private cards for all players
-  const int private_states_diff = (acpc_game_.GetNbPlayers() - 1) * acpc_game_.GetNbHoleCardsRequired() * 3;
+  const int private_states_diff = (acpc_game_.GetNbPlayers() - 1) * acpc_game_.GetNbHoleCardsRequired();
 
   return {InformationStateTensorShape()[0] + private_states_diff};
 }
@@ -864,6 +833,18 @@ uint8_t UniversalPokerGame::NumRanks() const{
 
 uint8_t UniversalPokerGame::NumRounds() const{
   return acpc_game_.NumRounds();
+}
+
+uint8_t UniversalPokerGame::GetNbOfHoleCards() const {
+    return acpc_game_.GetNbHoleCardsRequired();
+}
+
+uint8_t UniversalPokerGame::GetTotalNbBoardCards() const {
+    return acpc_game_.GetTotalNbBoardCards();
+}
+
+uint8_t UniversalPokerGame::GetNbBoardCardsForRound(uint8_t round) const{
+    return acpc_game_.GetNbBoardCardsRequired(round);
 }
 
 std::unique_ptr<State> UniversalPokerGame::StateFromACPCState(std::string acpc_state) const {

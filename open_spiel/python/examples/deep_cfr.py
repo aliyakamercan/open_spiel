@@ -84,5 +84,19 @@ def main(unused_argv):
     print("Expected player 1 value: {}".format(1 / 18))
 
 
+def main3(args):
+    game = pyspiel.load_game("universal_poker")
+    bots = [
+        pyspiel.make_uniform_random_bot(0, 1234),
+        uniform_random.UniformRandomBot(1, np.random.RandomState(4321)),
+    ]
+    results = np.array([
+        pyspiel.evaluate_bots(game.new_initial_state(), bots, iteration)
+        for iteration in range(10000)
+    ])
+    universal_poker_average_results = np.mean(results, axis=0)
+    print(universal_poker_average_results)
+
+
 if __name__ == "__main__":
-  app.run(main)
+  app.run(main3)

@@ -454,6 +454,9 @@ PYBIND11_MODULE(pyspiel, m) {
       .def("num_suits", &universal_poker::UniversalPokerGame::NumSuits)
       .def("num_ranks", &universal_poker::UniversalPokerGame::NumRanks)
       .def("num_rounds", &universal_poker::UniversalPokerGame::NumRounds)
+      .def("num_hole_cards", &universal_poker::UniversalPokerGame::GetNbOfHoleCards)
+      .def("total_board_cards", &universal_poker::UniversalPokerGame::GetTotalNbBoardCards)
+      .def("board_cards_for_round", &universal_poker::UniversalPokerGame::GetNbBoardCardsForRound)
       .def("state_from_acpc_state", &universal_poker::UniversalPokerGame::StateFromACPCState)
       .def(py::pickle(                            // Pickle support
           [](std::shared_ptr<const universal_poker::UniversalPokerGame> game) {  // __getstate__
