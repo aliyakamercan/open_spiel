@@ -30,10 +30,7 @@ class TrainingProfile:
                  n_actions_traverser_samples=3,
 
                  sampler="mo",
-                 turn_off_baseline=False,  # Only for VR-OS
                  os_eps=1,
-                 periodic_restart=1,
-
                  online=False,
 
                  # --- Baseline Hyperparameters
@@ -42,7 +39,7 @@ class TrainingProfile:
                  n_batches_per_iter_baseline=300,
 
                  dim_baseline=64,
-                 normalize_last_layer_FLAT_baseline=True,
+                 normalize_last_layer_flat_baseline=True,
 
                  # --- Adv Hyperparameters
                  n_batches_adv_training=5000,
@@ -63,7 +60,6 @@ class TrainingProfile:
                  init_avrg_model="random",
                  dim_avrg=64,
                  mini_batch_size_avrg=2048,
-                 n_mini_batches_per_la_per_update_avrg=1,
                  loss_avrg="weighted_mse",
                  optimizer_avrg="adam",
                  lr_avrg=0.001,
@@ -85,7 +81,7 @@ class TrainingProfile:
         mpm_args_avrg = MPMArgsFLAT(other_units=dim_avrg,
                                     normalize=normalize_last_layer_flat_avrg)
         mpm_args_baseline = MPMArgsFLAT(other_units=dim_baseline,
-                                        normalize=normalize_last_layer_FLAT_baseline)
+                                        normalize=normalize_last_layer_flat_baseline)
         # t_prof
         self.name = name
         self.nn_type = nn_type

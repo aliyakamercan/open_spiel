@@ -18,148 +18,71 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import datetime
 from absl import app
 from absl import flags
-from open_spiel.python.algorithms.deep import DCFR
-from open_spiel.python.algorithms.deep.TrainingProfile import TrainingProfile
+from absl import logging
+import six
+
+import tensorflow.compat.v1 as tf
+
+from open_spiel.python import policy
+from open_spiel.python.algorithms import deep_cfr
+from open_spiel.python.algorithms import expected_game_score
+from open_spiel.python.algorithms import exploitability
 import pyspiel
+
+# Temporarily disable TF2 behavior until we update the code.
+tf.disable_v2_behavior()
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer("num_iterations", 150, "Number of iterations")
+flags.DEFINE_integer("num_iterations", 400, "Number of iterations")
+flags.DEFINE_integer("num_traversals", 40, "Number of traversals/games")
+flags.DEFINE_string("game_name", "kuhn_poker", "Name of the game")
 
 
 def main(unused_argv):
-    game = pyspiel.load_game(
-        "universal_poker",
-        {"betting": pyspiel.GameParameter("limit"),
-         "numPlayers": pyspiel.GameParameter(2),
-         "numRounds": pyspiel.GameParameter(1),
-         "blind": pyspiel.GameParameter("1 1"),
-         "raiseSize": pyspiel.GameParameter("1 "),
-         "firstPlayer": pyspiel.GameParameter("1 "),
-         "maxRaises": pyspiel.GameParameter("1 "),
-         "numSuits": pyspiel.GameParameter(1),
-         "numRanks": pyspiel.GameParameter(3),
-         "numHoleCards": pyspiel.GameParameter(1),
-         "numBoardCards": pyspiel.GameParameter("0 "),
-         "bettingAbstraction": pyspiel.GameParameter("limit")})
-    # game = pyspiel.load_game(FLAGS.game_name)
-    deep_cfr_solver = DCFR(
-        game=game,
-        t_prof=TrainingProfile(
-            name="test-" + datetime.datetime.now().strftime("%d-%b-%Y (%H:%M:%S)"),
-            nn_type="feedforward",
+    logging.info("Loading %s", FLAGS.game_name)
+    game = pyspiel.load_game(FLAGS.game_name)
+    with tf.Session() as sess:
+        deep_cfr_solver = deep_cfr.DeepCFRSolver(
+            sess,
+            game,
+            policy_network_layers=(16,),
+            advantage_network_layers=(16,),
+            num_iterations=FLAGS.num_iterations,
+            num_traversals=FLAGS.num_traversals,
+            learning_rate=1e-3,
+            batch_size_advantage=128,
+            batch_size_strategy=1024,
+            memory_capacity=1e7,
+            policy_network_train_steps=400,
+            advantage_network_train_steps=20,
+            reinitialize_advantage_networks=False)
+        sess.run(tf.global_variables_initializer())
+        _, advantage_losses, policy_loss = deep_cfr_solver.solve()
+        for player, losses in six.iteritems(advantage_losses):
+            logging.info("Advantage for player %d: %s", player,
+                         losses[:2] + ["..."] + losses[-2:])
+            logging.info("Advantage Buffer Size for player %s: '%s'", player,
+                         len(deep_cfr_solver.advantage_buffers[player]))
+        logging.info("Strategy Buffer Size: '%s'",
+                     len(deep_cfr_solver.strategy_buffer))
+        logging.info("Final policy loss: '%s'", policy_loss)
 
-            n_batches_adv_training=70,
-            dim_adv=16,
-            lr_adv=0.001,
-            lr_patience_adv=2,
-            iter_weighting_exponent=.5,
-            # grad_norm_clipping_adv=None,
-            # init_adv_model="last",
+        average_policy = policy.tabular_policy_from_callable(
+            game, deep_cfr_solver.action_probabilities)
 
-            n_traversals_per_iter=900,
-            sampler="mo",
-            n_batches_per_iter_baseline=150,
+        conv = exploitability.nash_conv(game, average_policy)
+        logging.info("Deep CFR in '%s' - NashConv: %s", FLAGS.game_name, conv)
 
-            n_actions_traverser_samples=None,
-
-
-            os_eps=0.0,
-            n_batches_avrg_training=4000,
-
-            eval_every_n_iters=2,
-            log_verbose=False
-        ),
-        num_iterations=FLAGS.num_iterations
-    )
-
-    deep_cfr_solver.solve()
-
-
-def main2(args):
-    game_2 = pyspiel.UniversalPokerGame(
-        {"betting": pyspiel.GameParameter("limit"),
-         "numPlayers": pyspiel.GameParameter(2),
-         "numRounds": pyspiel.GameParameter(1),
-         "blind": pyspiel.GameParameter("1 1"),
-         "raiseSize": pyspiel.GameParameter("1 "),
-         "firstPlayer": pyspiel.GameParameter("1 "),
-         "maxRaises": pyspiel.GameParameter("1 "),
-         "numSuits": pyspiel.GameParameter(1),
-         "numRanks": pyspiel.GameParameter(3),
-         "numHoleCards": pyspiel.GameParameter(1),
-         "numBoardCards": pyspiel.GameParameter("0 "),
-         "bettingAbstraction": pyspiel.GameParameter("limit")})
-    # state = game_2.new_initial_state()
-    # print(game_2.num_distinct_actions())
-    # # print(state.legal_actions())
-    # state.apply_action(0)
-    # state.apply_action(1)
-    #
-    # print(state.information_state_string())
-    # # pcool(state.information_state_tensor())
-    # # print(state.legal_actions())
-    #
-    # state.apply_action(2)
-    # print(state.information_state_string())
-    # print(state.information_state_tensor())
-    # pretty_universal_poker_tensor(game_2, state.information_state_tensor())
-
-
-def pretty_universal_poker_tensor(game, tensor, rounds=1, board_cards=0):
-    num_players = game.num_players()
-    current_actor_start = 4 + num_players
-    round_start = current_actor_start + num_players
-    p_states_start = round_start + 1
-    history_start = p_states_start + num_players * 4
-    board_start = history_start + rounds * 4 * num_players
-    hole_start = board_start + 3 * board_cards
-    s = """
-Min Raise: {min_raise}
-Main Pot: {main_pot}
-Biggest Bet To Call: {bbtc}
-Last Action Size (BB): {last_action}
-Last Actor (1-hot): {last_actor}
-Current Actor (1-hot): {current_actor}
-Round: {round}
-Player States: 
-{player_states}
-History:
-{history}
-Board: {board}
-Hole Cards: {hole_cards}
-    """.format(
-        min_raise=tensor[0],
-        main_pot=tensor[1],
-        bbtc=tensor[2],
-        last_action=tensor[3],
-        last_actor=tensor[4:p_states_start],
-        current_actor=tensor[current_actor_start:round_start],
-        round=tensor[round_start],
-        player_states=tensor[p_states_start:history_start],
-        history=tensor[history_start:board_start],
-        board=tensor[board_start:hole_start],
-        hole_cards=tensor[hole_start:],
-    )
-    print(s)
-
-
-def main3(args):
-    game = pyspiel.load_game("universal_poker")
-    bots = [
-        pyspiel.make_uniform_random_bot(0, 1234),
-        uniform_random.UniformRandomBot(1, np.random.RandomState(4321)),
-    ]
-    results = np.array([
-        pyspiel.evaluate_bots(game.new_initial_state(), bots, iteration)
-        for iteration in range(10000)
-    ])
-    universal_poker_average_results = np.mean(results, axis=0)
-    print(universal_poker_average_results)
+        average_policy_values = expected_game_score.policy_value(
+            game.new_initial_state(), [average_policy] * 2)
+        print("Computed player 0 value: {}".format(average_policy_values[0]))
+        print("Expected player 0 value: {}".format(-1 / 18))
+        print("Computed player 1 value: {}".format(average_policy_values[1]))
+        print("Expected player 1 value: {}".format(1 / 18))
 
 
 if __name__ == "__main__":
-  app.run(main3)
+    app.run(main)
