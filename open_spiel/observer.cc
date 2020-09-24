@@ -27,6 +27,7 @@ namespace open_spiel {
 DimensionedSpan ContiguousAllocator::Get(
     absl::string_view name, const absl::InlinedVector<int, 4>& shape) {
   const int size = absl::c_accumulate(shape, 1, std::multiplies<int>());
+  SPIEL_DCHECK_LE(offset_, data_.size());
   auto piece = data_.subspan(offset_, size);
   offset_ += size;
   return DimensionedSpan(piece, shape);
@@ -90,6 +91,34 @@ class DefaultObserver : public Observer {
   int size_;
 };
 
+std::string PrivateInfoTypeToString(const PrivateInfoType& type) {
+  if (type == PrivateInfoType::kNone) return "kNone";
+  if (type == PrivateInfoType::kSinglePlayer) return "kSinglePlayer";
+  if (type == PrivateInfoType::kAllPlayers) return "kAllPlayers";
+  SpielFatalError("Unknown PrivateInfoType!");
+}
+
+std::string IIGObservationTypeToString(const IIGObservationType& obs_type) {
+  return absl::StrCat(
+      "IIGObservationType",
+      "{perfect_recall=", obs_type.perfect_recall ? "true" : "false",
+      ", public_info=", obs_type.public_info ? "true" : "false",
+      ", private_info=", PrivateInfoTypeToString(obs_type.private_info), "}");
+}
+
+// A dummy class that provides private observations for games with perfect
+// information. As these games have no private information, we return dummy
+// values.
+class NoPrivateObserver : public Observer {
+ public:
+  NoPrivateObserver(const Game& game)
+      : Observer(/*has_string=*/true, /*has_tensor=*/true) {}
+  void WriteTensor(const State& state, int player,
+                   Allocator* allocator) const override {}
+  std::string StringFrom(const State& state, int player) const override {
+    return kNothingPrivateObservation;
+  }
+};
 }  // namespace
 
 std::shared_ptr<Observer> Game::MakeObserver(
@@ -100,6 +129,20 @@ std::shared_ptr<Observer> Game::MakeObserver(
   // game-specific observer.
   if (!params.empty()) SpielFatalError("Observer params not supported.");
   if (!iig_obs_type) return absl::make_unique<DefaultObserver>(*this);
+
+  // Perfect information games provide public information regardless
+  // of requested PrivateInfoType (as they have no private information).
+  if (GetType().information == GameType::Information::kPerfectInformation &&
+      !iig_obs_type->perfect_recall &&
+      (game_type_.provides_observation_tensor ||
+       game_type_.provides_observation_string)) {
+    if (iig_obs_type->public_info) {
+      return absl::make_unique<DefaultObserver>(*this);
+    } else {
+      return absl::make_unique<NoPrivateObserver>(*this);
+    }
+  }
+
   // TODO(author11) Reinstate this check
   // SPIEL_CHECK_EQ(GetType().information,
   //                GameType::Information::kImperfectInformation);
@@ -115,7 +158,8 @@ std::shared_ptr<Observer> Game::MakeObserver(
         game_type_.provides_information_state_string)
       return absl::make_unique<InformationStateObserver>(*this);
   }
-  SpielFatalError("Requested Observer type not available.");
+  SpielFatalError(absl::StrCat("Requested Observer type not available: ",
+                               IIGObservationTypeToString(*iig_obs_type)));
 }
 
 class TrackingVectorAllocator : public Allocator {
@@ -123,6 +167,7 @@ class TrackingVectorAllocator : public Allocator {
   TrackingVectorAllocator() {}
   DimensionedSpan Get(absl::string_view name,
                       const absl::InlinedVector<int, 4>& shape) {
+    SPIEL_DCHECK_TRUE(IsNameUnique(name));
     tensors.push_back(
         TensorInfo{std::string(name), {shape.begin(), shape.end()}});
     const int begin_size = data.size();
@@ -130,6 +175,13 @@ class TrackingVectorAllocator : public Allocator {
     data.resize(begin_size + size);
     return DimensionedSpan(absl::MakeSpan(data).subspan(begin_size, size),
                            shape);
+  }
+
+  bool IsNameUnique(absl::string_view name) {
+    for (const TensorInfo& tensor : tensors) {
+      if (tensor.name == name) return false;
+    }
+    return true;
   }
 
   std::vector<TensorInfo> tensors;
