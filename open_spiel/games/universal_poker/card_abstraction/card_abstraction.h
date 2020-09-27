@@ -25,17 +25,17 @@ class CardAbstraction {
  public:
   logic::CardSet deck;
   // Abstract multiple set of cards into buckets to lower number of info states
-  virtual std::pair<logic::CardSet, logic::CardSet>
+  virtual std::tuple<logic::CardSet, logic::CardSet, uint64_t>
   abstract(logic::CardSet hole_cards, logic::CardSet board_cards) const = 0;
 };
 
 class NoopCardAbstraction: public CardAbstraction {
  public:
-  std::pair<logic::CardSet, logic::CardSet>
+  std::tuple<logic::CardSet, logic::CardSet, uint64_t>
   abstract(logic::CardSet hole_cards,
            logic::CardSet board_cards) const override {
 
-    return {hole_cards, board_cards};
+    return {hole_cards, board_cards, 0};
   }
 };
 

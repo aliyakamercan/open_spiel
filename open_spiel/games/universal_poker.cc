@@ -25,6 +25,7 @@
 #include "open_spiel/abseil-cpp/absl/strings/str_join.h"
 #include "open_spiel/game_parameters.h"
 #include "open_spiel/games/universal_poker/card_abstraction/isomorphic.h"
+#include "open_spiel/games/universal_poker/card_abstraction/custom_bucket.h"
 #include "open_spiel/games/universal_poker/logic/card_set.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_utils.h"
@@ -154,6 +155,10 @@ std::vector<double> UniversalPokerState::GetBetSet() const {
 
 card_abstraction::CardAbstraction *UniversalPokerState::GetCardAbstraction() const {
   return static_cast<const UniversalPokerGame *>(game_.get())->GetCardAbstraction();
+}
+
+bool UniversalPokerState::GetCardAbsIndexOnly() const {
+  return static_cast<const UniversalPokerGame *>(game_.get())->GetCardAbsIndexOnly();
 }
 
 std::string UniversalPokerState::ToString() const {
@@ -309,7 +314,7 @@ void UniversalPokerState::InformationStateTensor(
   const logic::CardSet full_deck(acpc_game_->NumSuitsDeck(),
                                  acpc_game_->NumRanksDeck());
   const std::vector<uint8_t> deckCards = full_deck.ToCardArray();
-  auto [holeCards, boardCards] = AbstractedHoleAndBoardCards(player);
+  auto [holeCards, boardCards, abstraction_idx] = AbstractedHoleAndBoardCards(player);
 
   // TODO(author2): it should be way more efficient to iterate over the cards
   // of the player, rather than iterating over all the cards.
@@ -373,7 +378,7 @@ void UniversalPokerState::ObservationTensor(Player player,
   const logic::CardSet full_deck(acpc_game_->NumSuitsDeck(),
                                  acpc_game_->NumRanksDeck());
   const std::vector<uint8_t> all_cards = full_deck.ToCardArray();
-  auto [holeCards, boardCards] = AbstractedHoleAndBoardCards(player);
+  auto [holeCards, boardCards, abstraction_idx] = AbstractedHoleAndBoardCards(player);
 
   for (uint32_t i = 0; i < full_deck.NumCards(); i++) {
     values[i + offset] = holeCards.ContainsCards(all_cards[i]) ? 1.0 : 0.0;
@@ -406,8 +411,14 @@ std::string UniversalPokerState::InformationStateString(Player player) const {
     sequences.emplace_back(acpc_state_.BettingSequence(r));
   }
 
-  auto [holeCards, boardCards] = AbstractedHoleAndBoardCards(player);
+  auto [holeCards, boardCards, abstraction_idx] = AbstractedHoleAndBoardCards(player);
 
+  if (GetCardAbsIndexOnly()) {
+    return absl::StrFormat(
+          "[Round %i][Player: %i][Pot: %i][Money: %s][Card Idx: %"PRId64 "][Sequences: %s]",
+          acpc_state_.GetRound(), CurrentPlayer(), pot, absl::StrJoin(money, " "),
+          abstraction_idx, absl::StrJoin(sequences, "|"));
+  }
   return absl::StrFormat(
       "[Round %i][Player: %i][Pot: %i][Money: %s][Private: %s][Public: "
       "%s][Sequences: %s]",
@@ -428,7 +439,8 @@ std::string UniversalPokerState::ObservationString(Player player) const {
     absl::StrAppend(&result, " ", acpc_state_.Money(p));
   }
   // Add the player's private cards
-  auto [holeCards, boardCards] = AbstractedHoleAndBoardCards(player);
+  // TODO: change this
+  auto [holeCards, boardCards, abstraction_idx] = AbstractedHoleAndBoardCards(player);
   if (player != kChancePlayerId) {
     absl::StrAppend(&result, "][Private: ", holeCards.ToString(), "]");
   }
@@ -676,16 +688,14 @@ UniversalPokerGame::UniversalPokerGame(const GameParameters &params)
   std::string card_abstraction =
       ParameterValue<std::string>("cardAbstraction");
   if (card_abstraction == "isomorphic") {
-    if (acpc_game_.NumSuitsDeck() != 4 || acpc_game_.NumRanksDeck() != 13) {
-        SpielFatalError(
-            "Isomorphic card abstraction only supports standard 52 card deck.");
-    }
-    std::vector<int> cards_per_round;
-    for(int i = 0; i < acpc_game_.NumRounds(); ++i ) {
-        cards_per_round.push_back(acpc_game_.GetNbBoardCardsRequired(i));
-    }
-    cards_per_round[0] += cards_per_round[0] + acpc_game_.GetNbHoleCardsRequired();
-    card_abstraction_ = new card_abstraction::IsomorphicCardAbstraction(cards_per_round);
+    CheckStandardDeck();
+    card_abstraction_ = new card_abstraction::IsomorphicCardAbstraction(CardPerRound());
+  } else if (card_abstraction == "custom"){
+    std::string label_folder =
+      ParameterValue<std::string>("cardAbstractionLabelsFolder");
+    CheckStandardDeck();
+    card_abstraction_ = new card_abstraction::CustomBucketCardAbstraction(CardPerRound(), label_folder);
+    card_abs_index_only_ = true;
   } else if (card_abstraction == "noop"){
     card_abstraction_ = new card_abstraction::NoopCardAbstraction();
   } else {
@@ -698,6 +708,28 @@ UniversalPokerGame::UniversalPokerGame(const GameParameters &params)
       big_blind_ = b;
     }
   }
+}
+
+bool UniversalPokerGame::CheckStandardDeck() const{
+  if (acpc_game_.NumSuitsDeck() != 4 || acpc_game_.NumRanksDeck() != 13) {
+    SpielFatalError(
+        "Isomorphic card abstraction only supports standard 52 card deck.");
+  }
+  return true;
+}
+
+std::vector<int> UniversalPokerGame::CardPerRound() const {
+  std::vector<int> cards_per_round;
+  cards_per_round.reserve(acpc_game_.NumRounds());
+  cards_per_round.push_back(acpc_game_.GetNbHoleCardsRequired());
+
+  for(int i = 1; i < acpc_game_.NumRounds(); ++i ) {
+    cards_per_round.push_back(
+      acpc_game_.GetNbBoardCardsRequired(i) -
+      acpc_game_.GetNbBoardCardsRequired(i-1)
+    );
+  }
+  return cards_per_round;
 }
 
 std::unique_ptr<State> UniversalPokerGame::NewInitialState() const {

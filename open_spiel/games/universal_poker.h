@@ -100,7 +100,7 @@ class UniversalPokerState : public State {
     ++board_cards_dealt_;
   }
 
-  std::pair<logic::CardSet, logic::CardSet>
+  std::tuple<logic::CardSet, logic::CardSet, uint64_t>
   AbstractedHoleAndBoardCards(Player player) const {
     return GetCardAbstraction()->abstract(HoleCards(player), BoardCards());
   }
@@ -141,6 +141,7 @@ class UniversalPokerState : public State {
   BettingAbstraction GetBettingAbstraction() const;
   std::vector<double> GetBetSet() const;
   card_abstraction::CardAbstraction* GetCardAbstraction() const;
+  bool GetCardAbsIndexOnly() const;
   int CalculateBetSize(uint8_t action_id, Player player) const;
   int BigBlind() const;
   uint8_t AllInActionId() const;
@@ -198,6 +199,10 @@ class UniversalPokerGame : public Game {
     return card_abstraction_;
   }
 
+  bool GetCardAbsIndexOnly() const {
+      return card_abs_index_only_;
+  }
+
   int BigBlind() const {
     return big_blind_;
   }
@@ -208,7 +213,12 @@ private:
   BettingAbstraction betting_abstraction_;
   std::vector<double> bet_set_;
   card_abstraction::CardAbstraction* card_abstraction_;
+  bool card_abs_index_only_ = false;
   int32_t big_blind_ = 0;
+
+  bool CheckStandardDeck() const;
+  std::vector<int> CardPerRound() const;
+
 public:
   const acpc_cpp::ACPCGame *GetACPCGame() const { return &acpc_game_; }
 

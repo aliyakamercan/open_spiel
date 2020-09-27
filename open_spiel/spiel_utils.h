@@ -26,6 +26,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -102,7 +103,11 @@ std::ostream& operator<<(std::ostream& stream, const std::pair<T, U>& v) {
   stream << "(" << v.first << "," << v.second << ")";
   return stream;
 }
-
+template <typename T, typename U, typename X>
+std::ostream& operator<<(std::ostream& stream, const std::tuple<T, U, X>& v) {
+  stream << "(" << std::get<0>(v) << "," << std::get<1>(v) << "," << std::get<2>(v) << ")";
+  return stream;
+}
 namespace internal {
 // SpielStrOut(out, a, b, c) is equivalent to:
 //    out << a << b << c;

@@ -30,7 +30,7 @@ uint8_t from_iso_card(uint8_t iso_card) {
     return deck_get_suit(iso_card) + 4 * deck_get_rank(iso_card);
 }
 
-std::pair<logic::CardSet, logic::CardSet>
+std::tuple<logic::CardSet, logic::CardSet, uint64_t>
 IsomorphicCardAbstraction::abstract(logic::CardSet hole_cards,
                                     logic::CardSet board_cards) const {
     std::vector<uint8_t> h_arr = hole_cards.ToCardArray();
@@ -66,7 +66,7 @@ IsomorphicCardAbstraction::abstract(logic::CardSet hole_cards,
         r_board_cards.AddCard(from_iso_card(cards[i]));
     }
 
-    return {r_hole_cards, r_board_cards};
+    return {r_hole_cards, r_board_cards, index};
 }
 
 }

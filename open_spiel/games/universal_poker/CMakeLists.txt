@@ -3,6 +3,7 @@ set(HEADER_FILES
   logic/card_set.h
   card_abstraction/card_abstraction.h
   card_abstraction/isomorphic.h
+  card_abstraction/custom_bucket.h
 )
 
 set(CLIB_FILES
@@ -20,6 +21,7 @@ set(SOURCE_FILES
   acpc_cpp/acpc_game.cc
   logic/card_set.cc
   card_abstraction/isomorphic.cc
+  card_abstraction/custom_bucket.cc
 )
 
 add_library(universal_poker_clib OBJECT ${CLIB_FILES} )

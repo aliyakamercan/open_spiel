@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef OPEN_SPIEL_ISOMORPHIC_CARD_ABSTRACTION_H
-#define OPEN_SPIEL_ISOMORPHIC_CARD_ABSTRACTION_H
+#ifndef OPEN_SPIEL_CUSTOM_BUCKET_CARD_ABSTRACTION_H
+#define OPEN_SPIEL_CUSTOM_BUCKET_CARD_ABSTRACTION_H
 
 #include <vector>
 
@@ -37,12 +37,19 @@ http://www.cs.cmu.edu/~./kwaugh/publications/isomorphism13.pdf
 
 Limitations: only supports 52 card (13 rank, 4 suit) deck currently
  */
-class IsomorphicCardAbstraction: public CardAbstraction {
+class CustomBucketCardAbstraction: public CardAbstraction {
  private:
   std::vector<hand_indexer_t> indexers_;
   std::vector<int> cards_per_round_;
+  logic::CardSet empty_card_set_;
+  uint8_t river_labels_[2428287420];
+  uint8_t turn_labels_[55190538];
+  uint8_t flop_labels_[1286792];
  public:
-  IsomorphicCardAbstraction(std::vector<int> cards_per_round);
+  CustomBucketCardAbstraction(
+    std::vector<int> cards_per_round,
+    std::string label_folder
+  );
 
   std::tuple<logic::CardSet, logic::CardSet, uint64_t>
   abstract(logic::CardSet hole_cards,
@@ -53,4 +60,4 @@ class IsomorphicCardAbstraction: public CardAbstraction {
 }  // namespace universal_poker
 }  // namespace open_spiel
 
-#endif  // OPEN_SPIEL_ISOMORPHIC_CARD_ABSTRACTION_H
+#endif  // OPEN_SPIEL_CUSTOM_BUCKET_CARD_ABSTRACTION_H
