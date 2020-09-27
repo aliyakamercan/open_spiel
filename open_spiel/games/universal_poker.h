@@ -43,21 +43,17 @@ class UniversalPokerGame;
 
 constexpr uint8_t kMaxUniversalPokerPlayers = 10;
 
-// This is the mapping from int to action. E.g. the legal action "0" is fold,
-// the legal action "1" is check/call, etc.
-enum ActionType { kFold = 0, kCall = 1, kBet = 2, kAllIn = 3, kDeal = 4 };
-enum BettingAbstraction { kFCPA = 0, kFC = 1, kFULLGAME = 2 };
-
-enum StateActionType {
-  ACTION_DEAL = 1,
-  ACTION_FOLD = 2,
-  ACTION_CHECK_CALL = 4,
-  ACTION_BET = 8,
-  ACTION_ALL_IN = 16
+enum ActionType {
+  kFold = 0,
+  kCall = 1,
+  kBet = 2
 };
 
-constexpr StateActionType ALL_ACTIONS[5] = {
-    ACTION_DEAL, ACTION_FOLD, ACTION_CHECK_CALL, ACTION_BET, ACTION_ALL_IN};
+enum BettingAbstraction {
+  kLimit = 0,
+  kNoLimit = 1,
+  kDiscreteNoLimit = 2,
+};
 
 class UniversalPokerState : public State {
  public:
@@ -89,15 +85,7 @@ class UniversalPokerState : public State {
   void DoApplyAction(Action action_id) override;
 
  private:
-  void _CalculateActionsAndNodeType();
-
   double GetTotalReward(Player player) const;
-
-  const uint32_t &GetPossibleActionsMask() const { return possibleActions_; }
-  const int GetPossibleActionCount() const;
-
-  void ApplyChoiceAction(StateActionType action_type, int size);
-  const std::string &GetActionSequence() const { return actionSequence_; }
 
   void AddHoleCard(uint8_t card) {
     Player p = hole_cards_dealt_ / acpc_game_->GetNbHoleCardsRequired();
@@ -114,7 +102,7 @@ class UniversalPokerState : public State {
 
   std::pair<logic::CardSet, logic::CardSet>
   AbstractedHoleAndBoardCards(Player player) const {
-    return card_abstraction_->abstract(HoleCards(player), BoardCards());
+    return GetCardAbstraction()->abstract(HoleCards(player), BoardCards());
   }
 
   logic::CardSet HoleCards(Player player) const {
@@ -149,25 +137,28 @@ class UniversalPokerState : public State {
     return board_cards;
   }
 
+  void AddToActionSequence(uint8_t action, uint32_t size);
+  BettingAbstraction GetBettingAbstraction() const;
+  std::vector<double> GetBetSet() const;
+  card_abstraction::CardAbstraction* GetCardAbstraction() const;
+  int CalculateBetSize(uint8_t action_id, Player player) const;
+  int BigBlind() const;
+  uint8_t AllInActionId() const;
+
   const acpc_cpp::ACPCGame *acpc_game_;
   mutable acpc_cpp::ACPCState acpc_state_;
   logic::CardSet deck_;  // The remaining cards to deal.
   int hole_cards_dealt_ = 0;
   int board_cards_dealt_ = 0;
 
-  // The current player:
-  // kChancePlayerId for chance nodes
-  // kTerminalPlayerId when we everyone except one player has fold, or that
-  // we have reached the showdown.
-  // The current player >= 0 otherwise.
-  Player cur_player_;
-  uint32_t possibleActions_;
-  int32_t potSize_ = 0;
-  int32_t allInSize_ = 0;
-  std::string actionSequence_;
-
-  BettingAbstraction betting_abstraction_;
-  card_abstraction::CardAbstraction* card_abstraction_;
+  // Action sequence
+  struct PokerAction {
+    uint8_t round;
+    uint8_t player;
+    uint8_t action;
+    uint32_t size;
+  };
+  std::vector<PokerAction> action_sequence_;
 };
 
 class UniversalPokerGame : public Game {
@@ -183,30 +174,42 @@ class UniversalPokerGame : public Game {
   double UtilitySum() const override { return 0; }
   std::vector<int> InformationStateTensorShape() const override;
   std::vector<int> ObservationTensorShape() const override;
-  int MaxGameLength() const override;
-  BettingAbstraction betting_abstraction() const {
+
+  int MaxGameLength() const override {
+    //this is from acpc/project_acpc_server/game.h#23
+    return 64;
+  }
+
+  BettingAbstraction GetBettingAbstraction() const {
     return betting_abstraction_;
   }
   card_abstraction::CardAbstraction* card_abstraction() const {
     return card_abstraction_;
   }
 
-  int big_blind() const { return big_blind_; }
-  int starting_stack_big_blinds() const { return starting_stack_big_blinds_; }
+  std::vector<double> GetBetSet() const {
+    return bet_set_;
+  }
 
- private:
+  card_abstraction::CardAbstraction* GetCardAbstraction() const {
+    return card_abstraction_;
+  }
+
+  int BigBlind() const {
+    return big_blind_;
+  }
+
+private:
   std::string gameDesc_;
   const acpc_cpp::ACPCGame acpc_game_;
-  absl::optional<int> max_game_length_;
-  BettingAbstraction betting_abstraction_ = BettingAbstraction::kFULLGAME;
+  BettingAbstraction betting_abstraction_;
+  std::vector<double> bet_set_;
   card_abstraction::CardAbstraction* card_abstraction_;
-
- public:
+  int32_t big_blind_ = 0;
+public:
   const acpc_cpp::ACPCGame *GetACPCGame() const { return &acpc_game_; }
 
   std::string parseParameters(const GameParameters &map);
-  int big_blind_;
-  int starting_stack_big_blinds_;
 };
 
 // Only supported for UniversalPoker. Randomly plays an action from a fixed list

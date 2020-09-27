@@ -54,6 +54,7 @@ class ACPCGame {
   uint32_t StackSize(uint8_t player) const;
   uint32_t BlindSize(uint8_t player) const;
   uint8_t GetTotalNbBoardCards() const;
+  uint32_t GetRaiseSize(uint8_t round) const;
 
   // Accessors.
   ::project_acpc_server::Game* MutableGame() const { return &acpc_game_; }
