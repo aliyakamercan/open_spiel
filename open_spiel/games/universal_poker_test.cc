@@ -36,6 +36,7 @@ constexpr absl::string_view kKuhnLimit3P =
      "limit\n"
      "numPlayers = 3\n"
      "numRounds = 1\n"
+     "stack = 20 20 20\n"
      "blind = 1 1 1\n"
      "raiseSize = 1\n"
      "firstPlayer = 1\n"
@@ -55,8 +56,10 @@ GameParameters KuhnLimit3PParameters() {
           {"maxRaises", GameParameter(std::string("1"))},
           {"numSuits", GameParameter(1)},
           {"numRanks", GameParameter(4)},
+          {"stack", GameParameter(std::string("20 20 20"))},
           {"numHoleCards", GameParameter(1)},
-          {"numBoardCards", GameParameter(std::string("0"))}};
+          {"numBoardCards", GameParameter(std::string("0"))},
+          {"bettingAbstraction", GameParameter(std::string("limit"))}};
 }
 
 constexpr absl::string_view kHoldemNoLimit6P =
@@ -125,7 +128,7 @@ void LoadAndRunGamesFullParameters() {
   testing::RandomSimTestNoSerialize(*holdem_nolimit_6p, 1);
   testing::RandomSimTest(*holdem_nolimit_6p, 3);
   std::shared_ptr<const Game> holdem_nolimit_fullgame =
-      LoadGame(HunlGameString("fullgame"));
+      LoadGame(HunlGameString("nolimit"));
   testing::RandomSimTest(*holdem_nolimit_fullgame, 50);
 }
 
@@ -142,15 +145,15 @@ void HUNLRegressionTests() {
   std::shared_ptr<const Game> game = LoadGame(
       "universal_poker(betting=nolimit,numPlayers=2,numRounds=4,blind=100 "
       "50,firstPlayer=2 1 1 "
-      "1,numSuits=4,numRanks=13,numHoleCards=2,numBoardCards=0 3 1 1,stack=400 "
-      "400)");
+      "1,numSuits=4,numRanks=13,numHoleCards=2,numBoardCards=0 3 1 1,stack=350 "
+      "350,bettingAbstraction=nolimit)");
   std::unique_ptr<State> state = game->NewInitialState();
   while (state->IsChanceNode()) {
     state->ApplyAction(state->LegalActions()[0]);
   }
   std::cout << state->InformationStateString() << std::endl;
-  // Pot bet: call 50, and raise by 200.
-  state->ApplyAction(universal_poker::kBet);
+  // Raise to 3 BB
+  state->ApplyAction(universal_poker::kBet+2);
 
   // Now, the minimum bet size is larger than the pot, so player 0 can only
   // fold, call, or go all-in.
@@ -160,22 +163,22 @@ void HUNLRegressionTests() {
   SPIEL_CHECK_EQ(actions.size(), 3);
   SPIEL_CHECK_EQ(actions[0], universal_poker::kFold);
   SPIEL_CHECK_EQ(actions[1], universal_poker::kCall);
-  SPIEL_CHECK_EQ(actions[2], universal_poker::kAllIn);
+  SPIEL_CHECK_EQ(actions[2], 102);
 
-  // Try a similar test with a stacks of size 300.
+  // Try a similar test with a stacks of size 500.
   game = LoadGame(
-      "universal_poker(betting=nolimit,numPlayers=2,numRounds=4,blind=100 "
-      "50,firstPlayer=2 1 1 "
-      "1,numSuits=4,numRanks=13,numHoleCards=2,numBoardCards=0 3 1 1,stack=300 "
-      "300)");
+    "universal_poker(betting=nolimit,numPlayers=2,numRounds=4,blind=100 "
+    "50,firstPlayer=2 1 1 "
+    "1,numSuits=4,numRanks=13,numHoleCards=2,numBoardCards=0 3 1 1,stack=200 "
+    "200,bettingAbstraction=nolimit)");
   state = game->NewInitialState();
   while (state->IsChanceNode()) {
     state->ApplyAction(state->LegalActions()[0]);
   }
   std::cout << state->InformationStateString() << std::endl;
 
-  // The pot bet exactly matches the number of chips available. This is an edge
-  // case where all-in is not available, only the pot bet.
+  // The regular bet exactly matches the number of chips available. This is an edge
+  // case where all-in is not available, only regular bet.
 
   actions = state->LegalActions();
   absl::c_sort(actions);
@@ -183,7 +186,7 @@ void HUNLRegressionTests() {
   SPIEL_CHECK_EQ(actions.size(), 3);
   SPIEL_CHECK_EQ(actions[0], universal_poker::kFold);
   SPIEL_CHECK_EQ(actions[1], universal_poker::kCall);
-  SPIEL_CHECK_EQ(actions[2], universal_poker::kBet);
+  SPIEL_CHECK_EQ(actions[2], universal_poker::kBet + 1); // raise to 2 BB
 }
 
 void LoadAndRunGameFromDefaultConfig() {
@@ -206,7 +209,7 @@ constexpr absl::string_view kHULHString =
     ("universal_poker(betting=limit,numPlayers=2,numRounds=4,blind=50 100,"
      "firstPlayer=2 1,numSuits=4,numRanks=13,numHoleCards=2,numBoardCards=0 3 "
      "1 "
-     "1,raiseSize=200 200 400 400,maxRaises=3 4 4 4)");
+     "1,raiseSize=200 200 400 400,maxRaises=3 4 4 4,bettingAbstraction=limit)");
 
 void ChumpPolicyTests() {
   std::shared_ptr<const Game> game = LoadGame(std::string(kHULHString));
@@ -247,7 +250,7 @@ void FullNLBettingTest1() {
                       "numHoleCards=2,"
                       "numBoardCards=0 3 1 1,"
                       "stack=20 20,"
-                      "bettingAbstraction=fullgame)");
+                      "bettingAbstraction=nolimit)");
   std::unique_ptr<State> state = game->NewInitialState();
   while (state->IsChanceNode())
     state->ApplyAction(state->LegalActions()[0]);  // deal hole cards
@@ -295,7 +298,7 @@ void FullNLBettingTest2() {
                       "numHoleCards=2,"
                       "numBoardCards=0 3 1 1,"
                       "stack=10000 10000,"
-                      "bettingAbstraction=fullgame)");
+                      "bettingAbstraction=nolimit)");
   std::unique_ptr<State> state = game->NewInitialState();
   while (state->IsChanceNode()) {
     state->ApplyAction(state->LegalActions()[0]);  // deal hole cards
@@ -366,7 +369,7 @@ void FullNLBettingTest3() {
                       "numHoleCards=2,"
                       "numBoardCards=0 3 1 1,"
                       "stack=500 1000 2000,"
-                      "bettingAbstraction=fullgame)");
+                      "bettingAbstraction=nolimit)");
   std::unique_ptr<State> state = game->NewInitialState();
   while (state->IsChanceNode()) {
     state->ApplyAction(state->LegalActions()[0]);
@@ -420,6 +423,57 @@ void FullNLBettingTest3() {
       ":2c2d|2h2s|3c3d/3h3s4c/4d/4h"));
 }
 
+// Checks min raising functionality.
+void DiscNLBettingTest1() {
+  std::shared_ptr<const Game> game = LoadGame(
+      "universal_poker(betting=nolimit,"
+                      "numPlayers=2,"
+                      "numRounds=4,"
+                      "blind=2 1,"
+                      "firstPlayer=2 1 1 1,"
+                      "numSuits=4,"
+                      "numRanks=13,"
+                      "numHoleCards=2,"
+                      "numBoardCards=0 3 1 1,"
+                      "stack=20 20,"
+                      "bettingAbstraction=discreteNoLimit,"
+                      "betSet=0.25 0.5 0.75 1.0 1.25)");
+  std::unique_ptr<State> state = game->NewInitialState();
+  while (state->IsChanceNode())
+    state->ApplyAction(state->LegalActions()[0]);  // deal hole cards
+  // assert all raise increments are valid except quarter pot (less than BB)
+  for (int i = 3; i < 8; ++i)
+    SPIEL_CHECK_TRUE(absl::c_linear_search(state->LegalActions(), i));
+  SPIEL_CHECK_FALSE(absl::c_linear_search(state->LegalActions(), 8));
+  state->ApplyAction(1);  // call big blind
+  state->ApplyAction(1);  // check big blind
+  for (int i = 0; i < 3; ++i)
+    state->ApplyAction(state->LegalActions()[0]);  // deal flop
+  // assert all raise increments are valid except quarter pot (less than BB)
+  for (int i = 3; i < 8; ++i)
+    SPIEL_CHECK_TRUE(absl::c_linear_search(state->LegalActions(), i));
+  // each player keeps min raising until one is all in
+  state->ApplyAction(3);   //.5 pot
+  state->ApplyAction(2);   //.25 pot
+  state->ApplyAction(2);   //.25 pot
+  state->ApplyAction(2);   //.25 pot
+  state->ApplyAction(7);   // all in
+  state->ApplyAction(1);   // call last raise
+  state->ApplyAction(state->LegalActions()[0]);  // deal turn
+  state->ApplyAction(state->LegalActions()[0]);  // deal river
+  SPIEL_CHECK_EQ(state->Returns()[0], state->Returns()[1]);  // hand is a draw
+  std::string state_str = state->ToString();
+  if (!absl::StrContains(state_str,
+                         "ACPC State: STATE:0:cc/r4r6r9r14r20c//"
+                         ":2c2d|2h2s/3c3d3h/3s/4c")) {
+    std::cout << "history: " << state->HistoryString() << std::endl;
+    SpielFatalError(
+        absl::StrCat("State str: ", state_str, " should contain ",
+                     "ACPC State: STATE:0:cc/r4r6r9r14r20c//"
+                     ":2c2d|2h2s/3c3d3h/3s/4c"));
+  }
+}
+
 void ChanceDealRegressionTest() {
   std::shared_ptr<const Game> game = LoadGame(
       "universal_poker(betting=nolimit,"
@@ -432,7 +486,7 @@ void ChanceDealRegressionTest() {
       "numHoleCards=2,"
       "numBoardCards=0 3 1 1,"
       "stack=500 1000 2000,"
-      "bettingAbstraction=fullgame)");
+      "bettingAbstraction=nolimit)");
   std::unique_ptr<State> state = game->NewInitialState();
   for (Action action :
        {0, 1, 2, 3, 4, 5, 1, 1, 1, 6, 7, 8, 1, 1, 3, 6, 9, 21, 1, 9, 10}) {
@@ -440,7 +494,7 @@ void ChanceDealRegressionTest() {
   }
   SPIEL_CHECK_EQ(
       state->ToString(),
-      "BettingAbstraction: FULLGAME\n"
+      "BettingAbstraction: kNoLimit\n"
       "P0 Cards: 2d2c\n"
       "P1 Cards: 2s2h\n"
       "P2 Cards: 3d3c\n"
@@ -449,12 +503,12 @@ void ChanceDealRegressionTest() {
       "P1 Reward: -1000\n"
       "P2 Reward: 1500\n"
       "Node type?: Terminal Node!\n"
-      "]\n"
+      "PossibleActions (0): []\n"
       "Round: 3\n"
       "ACPC State: "
       "STATE:0:ccc/ccr200r500r800r2000c//:2c2d|2h2s|3c3d/3h3s4c/4d/4h\n"
       "Spent: [P0: 500  P1: 1000  P2: 2000  ]\n\n"
-      "Action Sequence: ddddddcccdddccppppcdd");
+      "Action Sequence: cccccr200r500r800r2000c");
 }
 }  // namespace
 }  // namespace universal_poker
@@ -469,9 +523,10 @@ int main(int argc, char **argv) {
   open_spiel::universal_poker::LoadAndRunGameFromGameDef();
   open_spiel::universal_poker::LoadAndRunGameFromDefaultConfig();
   open_spiel::universal_poker::BasicUniversalPokerTests();
-  open_spiel::universal_poker::HUNLRegressionTests();
   open_spiel::universal_poker::ChumpPolicyTests();
+  open_spiel::universal_poker::HUNLRegressionTests();
   open_spiel::universal_poker::FullNLBettingTest1();
   open_spiel::universal_poker::FullNLBettingTest2();
   open_spiel::universal_poker::FullNLBettingTest3();
+  open_spiel::universal_poker::DiscNLBettingTest1();
 }

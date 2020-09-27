@@ -410,7 +410,7 @@ if (${BUILD_WITH_ACPC})
   add_executable(universal_poker_test universal_poker_test.cc ${OPEN_SPIEL_OBJECTS}
           $<TARGET_OBJECTS:tests>
           $<TARGET_OBJECTS:algorithms>)
-  add_test(universal_poker_test.cc universal_poker_test)
+  add_test(universal_poker_test universal_poker_test)
 endif()
 
 add_executable(y_test y_test.cc ${OPEN_SPIEL_OBJECTS}
