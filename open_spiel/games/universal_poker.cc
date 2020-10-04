@@ -128,6 +128,7 @@ const GameType kGameType{
      // eg: 0.25 0.5 0.75 1.0 1.1
      // default is 1.0 with is pot bet only
      {"betSet", GameParameter(std::string("1.0"))},
+     {"cardAbstractionLabelsFolder", GameParameter(std::string(""))},
      {"cardAbstraction", GameParameter(std::string("noop"))}}};
 
 std::shared_ptr<const Game> Factory(const GameParameters &params) {

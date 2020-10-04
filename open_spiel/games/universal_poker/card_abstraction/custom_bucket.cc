@@ -17,9 +17,13 @@ CustomBucketCardAbstraction::CustomBucketCardAbstraction(
       cards_per_round_.push_back(cards_per_round[r]);
       // create indexer for this round
       hand_indexer_t indexer;
-      uint8_t array_slice[r+1];
-    std::copy(cards_per_round.begin(), cards_per_round.begin() + r + 1, array_slice);
-      hand_indexer_init(r + 1, array_slice, &indexer);
+      uint8_t array_slice[2];
+      array_slice[0] = cards_per_round[0];
+      array_slice[1] = 0;
+      for (int i = 1; i <= r; i ++) {
+        array_slice[1] += cards_per_round[i];
+      }
+      hand_indexer_init(r > 0 ? 2 : 1, array_slice, &indexer);
       indexers_.push_back(indexer);
   }
 
@@ -35,16 +39,16 @@ CustomBucketCardAbstraction::CustomBucketCardAbstraction(
   // Load turn labels
   FILE * tfin = fopen((label_folder + "/turn.labels").c_str(), "rb");
   if (!tfin) {
-    std::cerr << "River label file not found." << std::endl;
+    std::cerr << "Turn label file not found." << std::endl;
     std::exit(1);
   }
   fread(turn_labels_, sizeof(turn_labels_), 1, tfin);
   fclose(tfin);
 
   // Load flop labels
-  FILE * ffin = fopen((label_folder + "/turn.labels").c_str(), "rb");
+  FILE * ffin = fopen((label_folder + "/flop.labels").c_str(), "rb");
   if (!ffin) {
-    std::cerr << "River label file not found." << std::endl;
+    std::cerr << "Flop label file not found." << std::endl;
     std::exit(1);
   }
   fread(flop_labels_, sizeof(flop_labels_), 1, ffin);
