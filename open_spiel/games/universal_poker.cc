@@ -125,9 +125,10 @@ const GameType kGameType{
      // discreteNoLimit allows betting preset fractions of the pot
      {"bettingAbstraction", GameParameter(std::string("discreteNoLimit"))},
      // betSet applies for discreteNoLimit only specifies bet size w.r.t pot
-     // eg: 0.25 0.5 0.75 1.0 1.1
+     // format is <bet set initial r1>:<bet set after first raise r1>|<bet set initial r2>:<bet set after first raise r2> ....
+     // eg: 0.25 0.5 0.75 1.0 1.1:1.0|0.25 0.5 0.75 1.0 1.1|1.0
      // default is 1.0 with is pot bet only
-     {"betSet", GameParameter(std::string("1.0"))},
+     {"betSet", GameParameter(std::string("1.0:1.0|1.0:1.0"))},
      {"cardAbstractionLabelsFolder", GameParameter(std::string(""))},
      {"cardAbstraction", GameParameter(std::string("noop"))}}};
 
@@ -152,6 +153,22 @@ BettingAbstraction UniversalPokerState::GetBettingAbstraction() const {
 
 std::vector<double> UniversalPokerState::GetBetSet() const {
   return static_cast<const UniversalPokerGame *>(game_.get())->GetBetSet();
+}
+
+std::vector<std::vector<bool>> UniversalPokerState::GetBetSetInitial() const {
+  return static_cast<const UniversalPokerGame *>(game_.get())->GetBetSetInitialMask();
+}
+
+std::vector<std::vector<bool>> UniversalPokerState::GetBetSetAfterRaise() const {
+  return static_cast<const UniversalPokerGame *>(game_.get())->GetBetSetAfterRaiseMask();
+}
+
+std::vector<bool> UniversalPokerState::GetBetSetInitial(int round) const {
+  return GetBetSetInitial()[round];
+}
+
+std::vector<bool> UniversalPokerState::GetBetSetAfterRaise(int round) const {
+  return GetBetSetAfterRaise()[round];
 }
 
 card_abstraction::CardAbstraction *UniversalPokerState::GetCardAbstraction() const {
@@ -513,6 +530,16 @@ std::vector<Action> UniversalPokerState::LegalActions() const {
       int all_in_size = acpc_state_.Money(CurrentPlayer()) + acpc_state_.CurrentSpent(CurrentPlayer());
 
       for (int action_id = kBet; action_id < NumDistinctActions() - 1; action_id++) {
+        if (GetBettingAbstraction() == BettingAbstraction::kDiscreteNoLimit) {
+          // TODO: check if there is raise
+          if (acpc_state_.RaiseInRound() > 0) {
+            if (!GetBetSetAfterRaise(acpc_state_.GetRound())[action_id - 2]) {
+              continue;
+            }
+          } else if (!GetBetSetInitial(acpc_state_.GetRound())[action_id - 2]) {
+            continue;
+          }
+        }
         int bet_size = CalculateBetSize(action_id, CurrentPlayer());
         if (bet_size >= min_bet_size) {
           if (bet_size <= max_bet_size) {
@@ -673,13 +700,43 @@ UniversalPokerGame::UniversalPokerGame(const GameParameters &params)
     betting_abstraction_ = BettingAbstraction::kNoLimit;
   } else if (betting_abstraction.find("discreteNoLimit") == 0) {
     betting_abstraction_ = BettingAbstraction::kDiscreteNoLimit;
-    std::vector<std::string> bet_set_s =
-        absl::StrSplit(ParameterValue<std::string>("betSet"), ' ');
-    if (bet_set_s.empty()) {
+    std::vector<std::string> bet_set_rounds =
+        absl::StrSplit(ParameterValue<std::string>("betSet"), '|');
+    if (bet_set_rounds.empty()) {
       SpielFatalError("You must supply a bet set with discreteNoLimit");
     }
-    for (std::string b: bet_set_s) {
-      bet_set_.push_back(std::stod(b));
+    for (std::string bet_set_round: bet_set_rounds) {
+        std::vector<std::string> initial_after_raise = absl::StrSplit(bet_set_round, ':');
+        std::vector<std::string> initial = absl::StrSplit(initial_after_raise[1], ' ');
+        for (std::string b: initial) {
+          bet_set_.push_back(std::stod(b));
+        }
+    }
+    std::set<double> deduped_bet_set( bet_set_.begin(), bet_set_.end() );
+    bet_set_.assign( deduped_bet_set.begin(), deduped_bet_set.end() );
+
+    for (std::string bet_set_round: bet_set_rounds) {
+        std::vector<bool> initial_(bet_set_.size(), false);
+        std::vector<bool> after_raise_(bet_set_.size(), false);
+        std::vector<std::string> initial_after_raise = absl::StrSplit(bet_set_round, ':');
+        std::vector<std::string> initial = absl::StrSplit(initial_after_raise[1], ' ');
+        for (std::string b: initial) {
+          auto it = std::find(bet_set_.begin(), bet_set_.end(), std::stod(b));
+          if (it != bet_set_.end()) {
+            int index = std::distance(bet_set_.begin(),  it);
+            initial_[index] = true;
+          }
+        }
+        std::vector<std::string> after_raise = absl::StrSplit(initial_after_raise[1], ' ');
+        for (std::string b: after_raise) {
+          auto it = std::find(bet_set_.begin(), bet_set_.end(), std::stod(b));
+          if (it != bet_set_.end()) {
+            int index = std::distance(bet_set_.begin(),  it);
+            after_raise_[index] = true;
+          }
+        }
+        bet_set_initial_mask_.push_back(initial_);
+        bet_set_after_raise_mask_.push_back(after_raise_);
     }
   } else {
     SpielFatalError(absl::StrFormat("bettingAbstraction: %s not supported.",

@@ -88,6 +88,7 @@ class ACPCState {
   // within a round.
   uint8_t CurrentPlayer() const;
   uint8_t NumFolded() const;
+  bool RaiseInRound() const;
   uint32_t Money(const uint8_t player) const;
   uint32_t Ante(const uint8_t player) const;
   uint32_t TotalSpent() const;

@@ -203,6 +203,10 @@ uint8_t ACPCState::NumFolded() const {
   return project_acpc_server::numFolded(game_->MutableGame(), &acpcState_);
 }
 
+bool ACPCState::RaiseInRound() const {
+  return project_acpc_server::numRaises( &acpcState_);
+}
+
 uint8_t ACPCState::CurrentPlayer() const {
   return project_acpc_server::currentPlayer(game_->MutableGame(), &acpcState_);
 }

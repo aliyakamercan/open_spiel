@@ -140,6 +140,10 @@ class UniversalPokerState : public State {
   void AddToActionSequence(uint8_t action, uint32_t size);
   BettingAbstraction GetBettingAbstraction() const;
   std::vector<double> GetBetSet() const;
+  std::vector<std::vector<bool>> GetBetSetInitial() const;
+  std::vector<std::vector<bool>> GetBetSetAfterRaise() const;
+  std::vector<bool> GetBetSetInitial(int round) const;
+  std::vector<bool> GetBetSetAfterRaise(int round) const;
   card_abstraction::CardAbstraction* GetCardAbstraction() const;
   bool GetCardAbsIndexOnly() const;
   int CalculateBetSize(uint8_t action_id, Player player) const;
@@ -194,6 +198,14 @@ class UniversalPokerGame : public Game {
     return bet_set_;
   }
 
+  std::vector<std::vector<bool>> GetBetSetInitialMask() const {
+    return bet_set_initial_mask_;
+  }
+
+  std::vector<std::vector<bool>> GetBetSetAfterRaiseMask() const {
+    return bet_set_after_raise_mask_;
+  }
+
   card_abstraction::CardAbstraction* GetCardAbstraction() const {
     return card_abstraction_;
   }
@@ -211,6 +223,8 @@ private:
   const acpc_cpp::ACPCGame acpc_game_;
   BettingAbstraction betting_abstraction_;
   std::vector<double> bet_set_;
+  std::vector<std::vector<bool>> bet_set_initial_mask_;
+  std::vector<std::vector<bool>> bet_set_after_raise_mask_;
   card_abstraction::CardAbstraction* card_abstraction_;
   bool card_abs_index_only_ = false;
   int32_t big_blind_ = 0;

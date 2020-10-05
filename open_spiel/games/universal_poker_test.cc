@@ -437,7 +437,7 @@ void DiscNLBettingTest1() {
                       "numBoardCards=0 3 1 1,"
                       "stack=20 20,"
                       "bettingAbstraction=discreteNoLimit,"
-                      "betSet=0.25 0.5 0.75 1.0 1.25)");
+                      "betSet=0.25 0.5 0.75 1.0 1.25:0.25 0.5 0.75 1.0 1.25|0.25 0.5 0.75 1.0 1.25:0.25 0.5 0.75 1.0 1.25|0.25 0.5 0.75 1.0 1.25:0.25 0.5 0.75 1.0 1.25|0.25 0.5 0.75 1.0 1.25:0.25 0.5 0.75 1.0 1.25)");
   std::unique_ptr<State> state = game->NewInitialState();
   while (state->IsChanceNode())
     state->ApplyAction(state->LegalActions()[0]);  // deal hole cards
