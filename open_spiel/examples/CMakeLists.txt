@@ -23,3 +23,9 @@ add_executable(value_iteration_example value_iteration_example.cc ${OPEN_SPIEL_O
 add_test(value_iteration_example_test value_iteration_example)
 
 add_executable(count_all_states count_all_states.cc ${OPEN_SPIEL_OBJECTS})
+
+add_executable(mccfr mccfr.cc ${OPEN_SPIEL_OBJECTS})
+add_executable(up_tests up_tests.cc ${OPEN_SPIEL_OBJECTS})
+
+find_package(OpenMP REQUIRED)
+target_link_libraries(up_tests PRIVATE OpenMP::OpenMP_CXX)

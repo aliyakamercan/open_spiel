@@ -42,8 +42,8 @@ class CustomBucketCardAbstraction: public CardAbstraction {
   std::vector<hand_indexer_t> indexers_;
   std::vector<int> cards_per_round_;
   logic::CardSet empty_card_set_;
-  uint8_t river_labels_[2428287420];
-  uint8_t turn_labels_[55190538];
+  uint8_t river_labels_[123156254];
+  uint8_t turn_labels_[13960050];
   uint8_t flop_labels_[1286792];
  public:
   CustomBucketCardAbstraction(

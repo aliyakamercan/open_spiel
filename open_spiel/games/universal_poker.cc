@@ -433,9 +433,8 @@ std::string UniversalPokerState::InformationStateString(Player player) const {
 
   if (GetCardAbsIndexOnly()) {
     return absl::StrFormat(
-          "[Round %i][Player: %i][Pot: %i][Money: %s][Card Idx: %"PRId64 "][Sequences: %s]",
-          acpc_state_.GetRound(), CurrentPlayer(), pot, absl::StrJoin(money, " "),
-          abstraction_idx, absl::StrJoin(sequences, "|"));
+          "%i:%i:%"PRId64 ":%s",
+          acpc_state_.GetRound(), CurrentPlayer(), abstraction_idx, absl::StrJoin(sequences, "|"));
   }
   return absl::StrFormat(
       "[Round %i][Player: %i][Pot: %i][Money: %s][Private: %s][Public: "

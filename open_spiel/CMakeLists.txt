@@ -96,7 +96,7 @@ macro(openspiel_optional_dependency DEP_NAME DEP_DEFAULT DEP_DESCRIPTION)
 endmacro()
 
 # List of all optional dependencies:
-openspiel_optional_dependency(BUILD_WITH_ACPC           OFF
+openspiel_optional_dependency(BUILD_WITH_ACPC           ON
   "Build against the Universal Poker library.")
 openspiel_optional_dependency(BUILD_WITH_EIGEN          OFF
   "Build with support for Eigen in C++.")
