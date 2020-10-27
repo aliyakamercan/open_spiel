@@ -24,7 +24,6 @@ add_test(value_iteration_example_test value_iteration_example)
 
 add_executable(count_all_states count_all_states.cc ${OPEN_SPIEL_OBJECTS})
 
-add_executable(mccfr mccfr.cc ${OPEN_SPIEL_OBJECTS})
 add_executable(up_tests up_tests.cc ${OPEN_SPIEL_OBJECTS})
 
 find_package(OpenMP REQUIRED)

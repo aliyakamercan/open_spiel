@@ -179,6 +179,18 @@ bool UniversalPokerState::GetCardAbsIndexOnly() const {
   return static_cast<const UniversalPokerGame *>(game_.get())->GetCardAbsIndexOnly();
 }
 
+int UniversalPokerState::GetRound() const {
+  return acpc_state_.GetRound();
+}
+
+int UniversalPokerState::NumFolded() const {
+  return acpc_state_.NumFolded();
+}
+
+int UniversalPokerState::MaxSpend() const {
+  return acpc_state_.MaxSpend();
+}
+
 std::string UniversalPokerState::ToString() const {
   std::string str =
       absl::StrCat(BettingAbstractionToString(GetBettingAbstraction()), "\n");
@@ -706,8 +718,12 @@ UniversalPokerGame::UniversalPokerGame(const GameParameters &params)
     }
     for (std::string bet_set_round: bet_set_rounds) {
         std::vector<std::string> initial_after_raise = absl::StrSplit(bet_set_round, ':');
-        std::vector<std::string> initial = absl::StrSplit(initial_after_raise[1], ' ');
+        std::vector<std::string> initial = absl::StrSplit(initial_after_raise[0], ' ');
+        std::vector<std::string> after_raise = absl::StrSplit(initial_after_raise[1], ' ');
         for (std::string b: initial) {
+          bet_set_.push_back(std::stod(b));
+        }
+        for (std::string b: after_raise) {
           bet_set_.push_back(std::stod(b));
         }
     }
@@ -718,7 +734,7 @@ UniversalPokerGame::UniversalPokerGame(const GameParameters &params)
         std::vector<bool> initial_(bet_set_.size(), false);
         std::vector<bool> after_raise_(bet_set_.size(), false);
         std::vector<std::string> initial_after_raise = absl::StrSplit(bet_set_round, ':');
-        std::vector<std::string> initial = absl::StrSplit(initial_after_raise[1], ' ');
+        std::vector<std::string> initial = absl::StrSplit(initial_after_raise[0], ' ');
         for (std::string b: initial) {
           auto it = std::find(bet_set_.begin(), bet_set_.end(), std::stod(b));
           if (it != bet_set_.end()) {
