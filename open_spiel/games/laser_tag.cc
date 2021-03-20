@@ -430,7 +430,7 @@ std::string LaserTagState::ToString() const {
 
   absl::StrAppend(&result, "Orientations: ", player_facing_[0], " ",
                   player_facing_[1], "\n");
-  if (IsChanceNode()) absl::StrAppend(&result, "Chance Node");
+  if (IsChanceNode()) absl::StrAppend(&result, "Chance INode");
   return result;
 }
 

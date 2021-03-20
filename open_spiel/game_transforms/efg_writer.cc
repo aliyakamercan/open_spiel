@@ -29,7 +29,7 @@ EFGWriter::EFGWriter(const Game& game, const std::string filename,
       filename_(filename),
       action_names_(action_names),
       separate_infostate_numbers_(separate_infostate_numbers),
-      // Node indices start at 1.
+      // INode indices start at 1.
       chance_node_counter_(1),
       terminal_node_counter_(1) {
   const auto& info = game_.GetType();

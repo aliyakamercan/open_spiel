@@ -184,7 +184,7 @@ void TestGetAllInfoSetsMatchesInfoStates() {
       const std::string& infostate = kv.first;
       for (const auto& state_and_prob : kv.second) {
         HistoryNode* node = state_and_prob.first;
-        if (node == nullptr) SpielFatalError("Node is null.");
+        if (node == nullptr) SpielFatalError("INode is null.");
         std::string node_infostate = node->GetInfoState();
         if (infostate != node_infostate) {
           SpielFatalError(

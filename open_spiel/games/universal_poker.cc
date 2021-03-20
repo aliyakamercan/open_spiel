@@ -191,6 +191,15 @@ int UniversalPokerState::MaxSpend() const {
   return acpc_state_.MaxSpend();
 }
 
+int UniversalPokerState::Pot() const {
+  return acpc_state_.TotalSpent();
+}
+
+
+int UniversalPokerState::MaxSpend(int player) const {
+  return acpc_state_.CurrentSpent(player);
+}
+
 std::string UniversalPokerState::ToString() const {
   std::string str =
       absl::StrCat(BettingAbstractionToString(GetBettingAbstraction()), "\n");
@@ -207,11 +216,11 @@ std::string UniversalPokerState::ToString() const {
       absl::StrAppend(&str, "P", p, " Reward: ", GetTotalReward(p), "\n");
     }
   }
-  absl::StrAppend(&str, "Node type?: ");
+  absl::StrAppend(&str, "INode type?: ");
   if (IsChanceNode()) {
     absl::StrAppend(&str, "Chance node\n");
   } else if (IsTerminal()) {
-    absl::StrAppend(&str, "Terminal Node!\n");
+    absl::StrAppend(&str, "Terminal INode!\n");
   } else {
     absl::StrAppend(&str, "Player node for player ", CurrentPlayer(), "\n");
   }
@@ -687,6 +696,11 @@ uint8_t UniversalPokerState::AllInActionId() const {
   } else { // disc no limit
     return 2 + GetBetSet().size();
   }
+}
+// Doesn't do any checks
+void UniversalPokerState::ApplyBet(int amount) {
+  AddToActionSequence(kBet, amount);
+  acpc_state_.DoAction(acpc_cpp::ACPCState::ACPCActionType::ACPC_RAISE, amount);
 }
 
 /**

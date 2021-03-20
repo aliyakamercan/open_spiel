@@ -33,7 +33,7 @@ public class GridMaze: GameProtocol {
     }
   }
 
-  public struct GameState: StateProtocol {
+  public struct BoardState: StateProtocol {
     public let game: GridMaze
     public var history = [GridMaze.Action]()
     public var currentPlayer: Player { return isTerminal ? .terminal : .player(0) }
@@ -76,10 +76,10 @@ public class GridMaze: GameProtocol {
     //      )
   }
 
-  public var initialState: GameState {
+  public var initialState: BoardState {
     let slist = maze.flatMap({ $0 }).filter({ $0.isInitial })
     if slist.count == 1 {
-      return GameState(gridCell: slist[0])
+      return BoardState(gridCell: slist[0])
     } else {
       fatalError(
         "GridMaze misconfigured: One (and only one) initial state is required and supported")
@@ -150,7 +150,7 @@ public class GridMaze: GameProtocol {
 }
 
 /// Extensions required by Spiel framework
-extension GridMaze.GameState {
+extension GridMaze.BoardState {
 
   init(gridCell: GridCell) {
     self.gridCell = gridCell
@@ -201,7 +201,7 @@ extension GridMaze.GameState {
 
   // TODO: Correct understanding?
   public func informationStateString(for player: Player) -> String {
-    return GridMaze.GameState.informationStateImpl(gridCell: gridCell)
+    return GridMaze.BoardState.informationStateImpl(gridCell: gridCell)
   }
 
   fileprivate static func informationStateImpl(gridCell: GridCell) -> String {
@@ -630,7 +630,7 @@ extension GridMaze {
       var qtableStrs = [[String]]()
       var ptableStrs = [String]()
       for ci in 0..<r.count {
-        let informationState = GridMaze.GameState.informationStateImpl(gridCell: maze[ri][ci])
+        let informationState = GridMaze.BoardState.informationStateImpl(gridCell: maze[ri][ci])
 
         // QTable
         // TODO: This is ugly, what is the beatiful Swift way to write this?
@@ -646,7 +646,7 @@ extension GridMaze {
           if let qtmp = qtable?[informationState] {
             q = qtmp
           } else {
-            let gs = GameState(gridCell: maze[ri][ci])
+            let gs = BoardState(gridCell: maze[ri][ci])
             let qvaluePart = 1.0 / Double(gs.legalActions.count)
             q = gs.legalActions.map { ($0, qvaluePart) }
           }

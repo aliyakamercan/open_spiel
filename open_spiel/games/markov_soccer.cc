@@ -295,7 +295,7 @@ std::string MarkovSoccerState::ToString() const {
 
     absl::StrAppend(&result, "\n");
   }
-  if (IsChanceNode()) absl::StrAppend(&result, "Chance Node");
+  if (IsChanceNode()) absl::StrAppend(&result, "Chance INode");
   return result;
 }
 

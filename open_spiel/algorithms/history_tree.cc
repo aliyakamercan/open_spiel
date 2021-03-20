@@ -145,7 +145,7 @@ std::vector<Action> HistoryNode::GetChildActions() const {
 HistoryNode* HistoryTree::GetByHistory(const std::string& history) {
   HistoryNode* node = state_to_node_[history];
   if (node == nullptr) {
-    SpielFatalError(absl::StrCat("Node is null for history: '", history, "'"));
+    SpielFatalError(absl::StrCat("INode is null for history: '", history, "'"));
   }
   return node;
 }

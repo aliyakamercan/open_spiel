@@ -502,7 +502,7 @@ void ChanceDealRegressionTest() {
       "P0 Reward: -500\n"
       "P1 Reward: -1000\n"
       "P2 Reward: 1500\n"
-      "Node type?: Terminal Node!\n"
+      "INode type?: Terminal INode!\n"
       "PossibleActions (0): []\n"
       "Round: 3\n"
       "ACPC State: "

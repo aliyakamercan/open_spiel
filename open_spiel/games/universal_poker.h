@@ -81,9 +81,13 @@ class UniversalPokerState : public State {
   std::unique_ptr<HistoryDistribution> GetHistoriesConsistentWithInfostate(
       int player_id) const override;
 
+  void ApplyBet(int amount);
+
   int GetRound() const;
   int NumFolded() const;
   int MaxSpend() const;
+  int Pot() const;
+  int MaxSpend(int player) const;
 
  protected:
   void DoApplyAction(Action action_id) override;
